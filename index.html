@@ -6,8 +6,6 @@ a{color:var(--iv)}:focus-visible{outline:2px solid var(--gl);outline-offset:2px}
 header.top{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;padding:.6rem 1.2rem;background:var(--ink);border-bottom:1px solid var(--br)}
 .brand{font-size:1.5rem;text-decoration:none;letter-spacing:.04em;color:var(--br)}.brand:before{content:"✦ ";color:var(--gl);text-shadow:0 0 10px var(--gl)}
 nav.m a{margin-right:.9rem;text-decoration:none;color:var(--mute)}nav.m a:hover{color:var(--iv)}
-#archive-error{margin:1rem 1.2rem;padding:.7rem;border:1px solid var(--br)}
-nav.m{min-width:0}nav.m a{display:inline-block}
 #q{background:#0a1220;border:1px solid var(--br);color:var(--iv);padding:.3rem .7rem;font:inherit;border-radius:2px;width:15rem}
 #sr{position:absolute;z-index:20;background:var(--ink);border:1px solid var(--br);max-width:26rem}#sr a{display:block;padding:.3rem .8rem;text-decoration:none}#sr a:hover,#sr a:focus{background:#16304a}
 main{max-width:1100px;margin:0 auto;padding:1.5rem 1.2rem 4rem}main.wide{max-width:none;padding:0}
@@ -35,9 +33,9 @@ form label{display:block;margin-top:.6rem;color:var(--mute)}form input,form text
 .zb{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;gap:4px}#side{overflow:auto;padding:.8rem;background:var(--pane);border-left:1px solid var(--br);font-size:.9rem;line-height:1.45}#side h3{margin:.8rem 0 .3rem;font-size:1.1rem}#side input,#side select{max-width:100%;width:100%;margin:.15rem 0}
 @media(max-width:800px){.cols,.atl{grid-template-columns:1fr}.atl{height:auto}#vp{height:60vh}.cols .info{order:-1;position:static}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-</style></head><body>
-<header class="top"><a class="brand" href="#/">Ór’esař</a><nav class="m" id="nav" aria-label="Sections"></nav><div style="margin-left:auto"><input id="q" type="search" placeholder="Search the archive" aria-label="Search" autocomplete="off"><div id="sr" role="listbox"></div></div></header>
-<p id="archive-error" role="alert" hidden></p><main id="app"><p>Loading the archive…</p><noscript>Enable JavaScript to open the archive.</noscript></main><div id="tip" role="tooltip"></div>
+</style><link rel="stylesheet" href="./assets/archive.css"></head><body>
+<header class="top"><a class="brand" href="#/">Ór’esař</a><nav class="m" id="nav" aria-label="Main navigation"><a href="#/">Archive</a><a href="#/atlas">Atlas</a><a href="#/origins">Origins</a><a href="#/timeline">Timeline</a><a href="#/board">Strategy Board</a></nav><div style="margin-left:auto"><input id="q" type="search" placeholder="Search the archive" aria-label="Search" autocomplete="off"><div id="sr" role="listbox"></div></div></header>
+<p id="archive-error" class="request-error" role="alert" hidden></p><main id="app"><p>Loading the archive…</p><noscript>Enable JavaScript to open the archive.</noscript></main><div id="tip" role="tooltip"></div>
 <script type="module">
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],app=$('#app');
 const T={character:['Characters',['birthName','species','culture','nationality','faction','rank','occupation','occupationHistory','born','died','age','apparentAge','joined','family']],place:['Countries & places',['kind','region','capital','population']],culture:['Cultures',['homeland','languages','customs']],faction:['Factions',['kind','leader','founded','base']],species:['Species',['lifespan','habitat','traits']],language:['Languages',['family','speakers','script']],myth:['Gods & myths',['kind','domain','symbols']],event:['Events',['date','book','place','participants']]};
@@ -45,55 +43,21 @@ const KINDS={partner:'Partner',family:'Family',friend:'Friend',rival:'Rival',all
 const norm=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f’'`‘]/g,'').toLowerCase();
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const label=k=>k.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase());
-const slug=s=>norm(s).replace(/[^a-z0-9]+/g,'-');const yr=s=>{const m=String(s||'').match(/-?\d{1,6}/);return m?+m[0]:1e9};
+const slug=s=>norm(s).replace(/[^a-z0-9]+/g,'-');
 let S={entries:[],rels:[],journeys:[],map:{}};const byId=i=>S.entries.find(e=>e.id==i);
-let archive;
-const media = file => esc(archive.mediaUrl(file));
-function showError(message, error) {
-  const notice = $('#archive-error');
-  notice.textContent = message;
-  notice.hidden = false;
-  console.error(error);
+let archive, readOnly=false, ready=false;
+const media=file=>esc(archive.mediaUrl(file));
+function showError(message){
+  const notice=$('#archive-error');
+  notice.textContent=message;
+  notice.hidden=false;
 }
-function useChange({state, record}) {
-  S = {...state, rels: state.relationships};
+function useChange({state,record}){
+  S={...state,rels:state.relationships};
   return record;
 }
-const save = async (kind, record) => useChange(await archive.save(kind, record));
-const remove = async (kind, id) => useChange(await archive.remove(kind, id));
-
-async function start() {
-  try {
-    const {loadArchive, openArchive} = await import('./archive-store.js');
-    const seed = await loadArchive();
-    try {
-      archive = await openArchive(seed);
-    } catch (error) {
-      showError('Browser storage is unavailable. You can browse the published archive, but changes cannot be saved.', error);
-      const unavailable = async () => { throw new Error('Browser storage is unavailable'); };
-      archive = {
-        data: seed,
-        mediaUrl: file => './assets/' + encodeURIComponent(file),
-        save: unavailable, remove: unavailable, saveEntry: unavailable,
-        imageFor: () => { throw new Error('Browser storage is unavailable'); },
-        publishJourney: unavailable, restoreMap: unavailable, replaceMap: unavailable
-      };
-    }
-    useChange({state: archive.data});
-    $('#nav').innerHTML = Object.entries(T).map(([key, value]) =>
-      `<a href="#/t/${key}">${value[0]}</a>`).join('') +
-      '<a href="#/t/journey">Journeys</a><a href="#/timeline">Timeline</a><a href="#/atlas">Atlas</a>';
-    addEventListener('hashchange', route);
-    route();
-  } catch (error) {
-    app.textContent = '';
-    showError('The archive data could not be loaded. Reload the page to try again.', error);
-  }
-}
-
-addEventListener('unhandledrejection', event => {
-  showError('The archive could not save your changes. Check browser storage and try again.', event.reason);
-});
+const save=async(kind,record)=>useChange(await archive.save(kind,record));
+const remove=async(kind,id)=>useChange(await archive.remove(kind,id));
 const inline=s=>esc(s).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,(m,id,t)=>{id=id.trim();const e=byId(id);return `<a class="ent${e?'':' dead'}" href="#/e/${id}" data-id="${id}">${t||(e?esc(e.title):id)}</a>`}).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i>$1</i>');
 const md=t=>String(t||'').split(/\n{2,}/).map(b=>{b=b.trim();let m;if(m=b.match(/^(#{1,2}) (.*)/))return `<h${m[1].length+1} id="${slug(m[2])}">${inline(m[2])}</h${m[1].length+1}>`;if(/^[-*] /.test(b))return'<ul>'+b.split('\n').map(l=>'<li>'+inline(l.replace(/^[-*] /,''))+'</li>').join('')+'</ul>';return b?'<p>'+inline(b).replace(/\n/g,'<br>')+'</p>':''}).join('');
 const refsOf=e=>new Set([...JSON.stringify([e.summary,e.body,e.fields]).matchAll(/\[\[([^\]|\\]+)/g)].map(m=>m[1].trim()));
@@ -109,29 +73,88 @@ $('#q').addEventListener('input',e=>{const r=search(e.target.value).slice(0,8);$
 $('#q').addEventListener('keydown',e=>{if(e.key=='Enter'){const r=search(e.target.value)[0];if(r){location.hash='#/e/'+r.id;e.target.value='';$('#sr').innerHTML=''}}if(e.key=='ArrowDown')$('#sr a')?.focus()});
 $('#sr').addEventListener('click',()=>{$('#q').value='';$('#sr').innerHTML=''});
 /* pages */
-function home(){app.innerHTML=`<h1>The Ór’esař Archive</h1><p class="sum">${S.entries.length?'Browse by section or search above.':'The archive is empty. Create the first entry from a section.'}</p><p><small>Changes are saved in this browser.</small></p><div class="grid">`+Object.entries(T).map(([k,v])=>`<a class="card" href="#/t/${k}"><b>${v[0]}</b><br><small>${S.entries.filter(e=>e.type==k).length} entries</small></a>`).join('')+`<a class="card" href="#/t/journey"><b>Journeys</b><br><small>${S.journeys.length}</small></a></div>`}
-function index(t){if(t=='journey'){app.innerHTML=`<h1>Journeys</h1><p><a class="btn" href="#/atlas">Open strategy board</a></p><div class="grid">${S.journeys.map(j=>`<a class="card" href="#/atlas" data-j="${j.id}"><b>${esc(j.title)}</b><br><small>${j.status}</small></a>`).join('')||'<p class="mute">No journeys yet. Create one on the atlas.</p>'}</div>`;$$('[data-j]').forEach(a=>a.onclick=()=>curJ=a.dataset.j);return}
-const l=S.entries.filter(e=>e.type==t).sort((a,b)=>a.title.localeCompare(b.title));app.innerHTML=`<h1>${T[t]?.[0]||t}</h1><p><a class="btn" href="#/edit/new:${t}">New entry</a></p><div class="grid">${l.map(e=>`<a class="card" href="#/e/${e.id}"><b>${esc(e.title)}</b><br><small>${esc(e.summary||'')}</small></a>`).join('')||'<p class="mute">Nothing here yet.</p>'}</div>`}
+const scenes={
+  camp:{title:'Ar’noirai Main Camp',type:'place',art:'camp',parent:'daranth',accent:'#ab8b52',focal:'65% 50%',features:['council-tree','root-bridges']},
+  'al-krasna':{title:'Al-Krasna',type:'place',art:'harbour',parent:'zerakan',accent:'#c3894e',focal:'70% 55%',features:['harbour-map','harbour']},
+  daranth:{title:'Daranth',type:'place'},zerakan:{title:'Zerakan',type:'place'},
+  'council-tree':{title:'Council Tree',type:'place',art:'council-tree'},
+  'root-bridges':{title:'Root bridges',type:'place',art:'root-bridges'},
+  harbour:{title:'Harbour',type:'place',art:'harbour-detail'},
+  'harbour-map':{title:'Harbour map',type:'place',art:'harbour-map'},
+  oresar:{title:'Ór’esař'},tiranog:{title:'Tiř’anÓg'},ashenlogh:{title:'Aşh’enløgħ'},
+  'first-three':{title:'The First Three'},'splitting-of-kaos':{title:'The Splitting of Ka’os'},'gods-step-forward':{title:'The Gods Step Forward'}
+};
+const art=name=>new URL('./assets/scenes/'+name+'.webp',document.baseURI).href;
+const findScene=key=>byId(key)||S.entries.find(e=>scenes[key]&&norm(e.title)===norm(scenes[key].title));
+const sceneHref=key=>findScene(key)?'#/e/'+encodeURIComponent(findScene(key).id):'#/scene/'+encodeURIComponent(key);
+function artwork(value){
+  if(typeof value!=='string')return '';
+  const scene=value.match(/^(?:\.\/|\/)?assets\/scenes\/([a-z-]+)\.webp$/);
+  return scene?art(scene[1]):/^[a-z0-9_.-]+$/i.test(value)?archive.mediaUrl(value):'';
+}
+const placeFields=['sceneArtwork','sceneFocalPoint','sceneAccent','parentRegion','illustratedFeatures'];
+const placeHints={sceneArtwork:'Uploaded filename or bundled scene path',sceneFocalPoint:'65% 50%',sceneAccent:'#ab8b52',parentRegion:'Parent entry ID',illustratedFeatures:'Comma-separated entry IDs'};
+function placeOpening(e,design={}){
+  const fields=e.fields||{}, parent=(fields.parentRegion||design.parent||(String(fields.region||'').startsWith('[[')?fields.region:'')).replace(/^\[\[|\]\]$/g,'').split('|')[0];
+  const focal=/^\d{1,3}% \d{1,3}%$/.test(fields.sceneFocalPoint)?fields.sceneFocalPoint:design.focal||'50% 50%';
+  const accent=/^#[a-f0-9]{6}$/i.test(fields.sceneAccent)?fields.sceneAccent:design.accent||'#a6804c';
+  const image=artwork(fields.sceneArtwork)||artwork(e.cover)||(design.art?art(design.art):'');
+  const keys=fields.illustratedFeatures?fields.illustratedFeatures.split(',').map(v=>v.trim()).filter(Boolean):design.features||[];
+  return `<div style="--accent:${accent}"><section class="place-scene${image?'':' no-scene-image'}">${image?`<img src="${esc(image)}" style="object-position:${focal}" alt="">`:''}
+    <div class="scene-copy"><h1>${esc(e.title)}</h1><div class="scene-actions">${parent?`<a href="${sceneHref(parent)}">‹ ${esc(findScene(parent)?.title||scenes[parent]?.title||parent)}</a>`:''}
+    <a class="btn" href="#/atlas${tgt(e)?'/'+encodeURIComponent(tgt(e)):''}">Open in atlas →</a></div></div></section>
+    ${keys.length?`<div class="place-features">${keys.map(key=>{const linked=findScene(key),spec=scenes[key];const img=artwork(linked?.fields?.sceneArtwork)||artwork(linked?.cover)||(spec?.art?art(spec.art):'');return `<a class="feature" href="${sceneHref(key)}">${img?`<img src="${esc(img)}" alt="">`:''}<strong>${esc(linked?.title||spec?.title||key)}</strong></a>`}).join('')}</div>`:''}</div>`;
+}
+function scene(key){
+  const saved=findScene(key), spec=scenes[key];
+  if(saved)return entry(saved.id);
+  if(!spec)return entry(key);
+  const edit=readOnly?'Article text has yet to be added.':`<a class="btn" href="#/edit/new:${spec.type||'myth'}/${key}">Add article</a>`;
+  if(spec.type==='place'){
+    app.classList.add('wide');
+    app.innerHTML=placeOpening(spec,spec)+`<div class="reading">${edit}</div>`;
+  }else app.innerHTML=`<h1>${esc(spec.title)}</h1><p>${edit}</p>`;
+}
+function spread(myth){
+  app.classList.add('wide');
+  const name=myth?'Origins':'The Three Realms',file=art(myth?'origins':'realms');
+  const keys=myth?['first-three','splitting-of-kaos','gods-step-forward']:['oresar','tiranog','ashenlogh'];
+  app.innerHTML=`<section class="spread ${myth?'myth':''}"><img class="spread-art" src="${file}" alt=""><h1>${name}</h1>
+  <div class="spread-grid">${keys.map((key,i)=>{
+    const titleId=`spread-title-${i}`;
+    const firstMyth=myth&&i===0;
+    return `<a class="spread-link" style="--mobile-scene:url('${art((myth?'origins':'realms')+'-'+(i+1))}')" href="${sceneHref(key)}"
+      aria-labelledby="${titleId}" ${firstMyth?'aria-describedby="first-three-labels"':''}>
+      ${firstMyth?`<span class="origin-annotations" id="first-three-labels"><span>Sky</span><span>First Moon</span><span>Earth</span></span>`:''}
+      <strong id="${titleId}">${esc(scenes[key].title)}</strong></a>`;
+  }).join('')}</div></section>`;
+}
+function home(){app.innerHTML=`<h1>The Ór’esař Archive</h1><p class="sum">${S.entries.length?'Browse by section or search above.':'The archive is empty. Create the first entry from a section.'}</p><p><small>Edits and uploads are saved in this browser.</small></p><div class="archive-links"><a class="btn" href="#/realms">The Three Realms</a><a class="btn" href="${sceneHref('camp')}">Ar’noirai Main Camp</a><a class="btn" href="${sceneHref('al-krasna')}">Al-Krasna</a></div><div class="grid">`+Object.entries(T).map(([k,v])=>`<a class="card" href="#/t/${k}"><b>${v[0]}</b><br><small>${S.entries.filter(e=>e.type==k).length} entries</small></a>`).join('')+`<a class="card" href="#/t/journey"><b>Journeys</b><br><small>${S.journeys.length}</small></a></div>`}
+function index(t){if(t=='journey'){app.innerHTML=`<h1>Journeys</h1><p><a class="btn" href="#/board">Open strategy board</a></p><div class="grid">${S.journeys.map(j=>`<a class="card" href="#/board" data-j="${j.id}"><b>${esc(j.title)}</b><br><small>${j.status}</small></a>`).join('')||'<p class="mute">No journeys yet. Create one on the atlas.</p>'}</div>`;$$('[data-j]').forEach(a=>a.onclick=()=>curJ=a.dataset.j);return}
+const l=S.entries.filter(e=>e.type==t).sort((a,b)=>a.title.localeCompare(b.title));app.innerHTML=`<h1>${T[t]?.[0]||t}</h1>${readOnly?'':`<p><a class="btn" href="#/edit/new:${t}">New entry</a></p>`}<div class="grid">${l.map(e=>`<a class="card" href="#/e/${e.id}"><b>${esc(e.title)}</b><br><small>${esc(e.summary||'')}</small></a>`).join('')||'<p class="mute">Nothing here yet.</p>'}</div>`}
 let rf=null;
 function entry(id){const e=byId(id);if(!e)return app.innerHTML=`<h1>Missing entry</h1><p>No entry with id <code>${esc(id)}</code>. <a href="#/">Home</a></p>`;
 const f=e.fields||{},heads=[...String(e.body||'').matchAll(/^(#{1,2}) (.+)$/gm)];
 const toc=heads.length?`<nav class="toc" aria-label="Contents">${heads.map(m=>`<a href="#" data-s="${slug(m[2])}" class="l${m[1].length}">${esc(m[2])}</a>`).join('')}</nav>`:'';
 const t=tgt(e),gal=e.gallery||[],mine=S.rels.filter(r=>r.a==id||r.b==id),shown=mine.filter(r=>!rf||r.kind==rf);
-const evs=S.entries.filter(x=>x.type=='event'&&x.id!=id&&refsOf(x).has(id)).sort((a,b)=>yr(a.fields?.date)-yr(b.fields?.date));
+const evs=S.entries.filter(x=>x.type=='event'&&x.id!=id&&refsOf(x).has(id)).sort((a,b)=>compareDates(a.fields?.date,b.fields?.date));
 const back=S.entries.filter(x=>x.id!=id&&x.type!='event'&&refsOf(x).has(id));
 const fl=(T[e.type]?.[1]||[]).concat(Object.keys(f).filter(k=>!(T[e.type]?.[1]||[]).includes(k)));
-app.innerHTML=`<header><small>${T[e.type]?.[0]||e.type}</small><h1>${esc(e.title)}</h1>${e.aliases?.length?`<small>Also known as ${esc(e.aliases.join(', '))}</small>`:''}<p class="sum">${inline(e.summary)}</p><p><a class="btn" href="#/edit/${id}">Edit</a>${t?`<a class="btn" href="#/atlas/${t}">Show on map</a>`:''}</p></header>
+const scenic=e.type==='place';
+if(scenic)app.classList.add('wide');
+const design=Object.values(scenes).find(spec=>norm(spec.title)===norm(e.title))||scenes[e.id];
+app.innerHTML=(scenic?placeOpening(e,design)+'<div class="reading">':'')+`<header>${scenic?'':`<small>${T[e.type]?.[0]||e.type}</small><h1>${esc(e.title)}</h1>`}${e.aliases?.length?`<small>Also known as ${esc(e.aliases.join(', '))}</small>`:''}<p class="sum">${inline(e.summary)}</p><p>${readOnly?'':`<a class="btn" href="#/edit/${id}">Edit</a>`}${t&&!scenic?`<a class="btn" href="#/atlas/${t}">Show on map</a>`:''}</p></header>
 <div class="cols"><div class="main">${toc}${md(e.body)}
 ${gal.length?`<h2>Gallery</h2><div class="gal">${gal.map(g=>`<figure><img loading="lazy" src="${media(g.file)}" alt="${esc(g.caption)}"><figcaption>${esc(g.caption)}</figcaption></figure>`).join('')}</div>`:''}
 <h2>Relationships</h2><div>${Object.entries(KINDS).map(([k,v])=>`<button class="chip ${rf==k?'on':''}" data-rf="${k}">${v}</button>`).join('')}</div>
-<ul>${shown.map(r=>{const o=byId(r.a==id?r.b:r.a);return`<li><b>${KINDS[r.kind]||r.kind}</b>: <a class="ent" href="#/e/${o?.id}" data-id="${o?.id}">${esc(o?.title||'?')}</a> <small>${esc([r.start,r.end].filter(Boolean).join(' – '))}</small> ${r.event&&byId(r.event)?`<a class="ent" data-id="${r.event}" href="#/e/${r.event}">${esc(byId(r.event).title)}</a>`:''} <button data-dr="${r.id}" aria-label="Remove">×</button></li>`}).join('')||'<li class="mute">None recorded.</li>'}</ul>
-<form id="rf2"><input list="dl" id="ro" placeholder="Linked entry" required style="width:14rem"><select id="rk">${Object.entries(KINDS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select><input id="rs" placeholder="From" style="width:6rem"><input id="re" placeholder="To" style="width:6rem"><input id="rv" list="dl" placeholder="Event" style="width:10rem"><button>Add relationship</button></form>
+<ul>${shown.map(r=>{const o=byId(r.a==id?r.b:r.a);return`<li><b>${KINDS[r.kind]||r.kind}</b>: <a class="ent" href="#/e/${o?.id}" data-id="${o?.id}">${esc(o?.title||'?')}</a> <small>${esc([r.start,r.end].filter(Boolean).join(' – '))}</small> ${r.event&&byId(r.event)?`<a class="ent" data-id="${r.event}" href="#/e/${r.event}">${esc(byId(r.event).title)}</a>`:''} ${readOnly?'':`<button data-dr="${r.id}" aria-label="Remove">×</button>`}</li>`}).join('')||'<li class="mute">None recorded.</li>'}</ul>
+${readOnly?'':`<form id="rf2"><input list="dl" id="ro" placeholder="Linked entry" required style="width:14rem"><select id="rk">${Object.entries(KINDS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select><input id="rs" placeholder="From" style="width:6rem"><input id="re" placeholder="To" style="width:6rem"><input id="rv" list="dl" placeholder="Event" style="width:10rem"><button>Add relationship</button></form>`}
 ${evs.length?`<h2>Timeline</h2><ul>${evs.map(x=>`<li><small>${esc(x.fields?.date||'')}</small> <a class="ent" href="#/e/${x.id}" data-id="${x.id}">${esc(x.title)}</a></li>`).join('')}</ul>`:''}
 ${back.length?`<h2>Mentioned in</h2><ul>${back.map(x=>`<li><a class="ent" href="#/e/${x.id}" data-id="${x.id}">${esc(x.title)}</a> <small>${esc(T[x.type]?.[0]||'')}</small></li>`).join('')}</ul>`:''}
-</div><aside class="info" aria-label="Infobox">${e.cover?`<img src="${media(e.cover)}" alt="${esc(e.title)}">`:''}<dl>${fl.filter(k=>f[k]).map(k=>`<dt>${label(k)}</dt><dd>${inline(f[k])}</dd>`).join('')}</dl></aside></div>${dl()}`;
+</div><aside class="info" aria-label="Infobox">${e.cover?`<img src="${media(e.cover)}" alt="${esc(e.title)}">`:''}<dl>${fl.filter(k=>f[k]&&!placeFields.includes(k)).map(k=>`<dt>${label(k)}</dt><dd>${inline(f[k])}</dd>`).join('')}</dl></aside></div>${scenic?'</div>':''}${dl()}`;
 $$('[data-rf]').forEach(b=>b.onclick=()=>{rf=rf==b.dataset.rf?null:b.dataset.rf;entry(id)});
 $$('[data-dr]').forEach(b=>b.onclick=async()=>{await remove('rel',b.dataset.dr);entry(id)});
-$('#rf2').onsubmit=async ev=>{ev.preventDefault();const o=pickId($('#ro').value);if(!o)return alert('Choose an existing entry from the list.');await save('rel',{a:id,b:o,kind:$('#rk').value,start:$('#rs').value,end:$('#re').value,event:pickId($('#rv').value)||''});entry(id)}}
+if($('#rf2'))$('#rf2').onsubmit=async ev=>{ev.preventDefault();const o=pickId($('#ro').value);if(!o)return alert('Choose an existing entry from the list.');await save('rel',{a:id,b:o,kind:$('#rk').value,start:$('#rs').value,end:$('#re').value,event:pickId($('#rv').value)||''});entry(id)}}
 const dl=()=>`<datalist id="dl">${S.entries.map(e=>`<option value="${esc(e.title)} (${e.id})">`).join('')}</datalist>`;
 const pickId=v=>{const m=String(v).match(/\(([^()]+)\)\s*$/);return m&&byId(m[1])?m[1]:byId(v)?v:(S.entries.find(e=>norm(e.title)==norm(v))||{}).id};
 /* editor with link picker */
@@ -141,12 +164,12 @@ function clearDraftArtwork() {
   for (const {url} of draftArtwork.values()) URL.revokeObjectURL(url);
   draftArtwork.clear();
 }
-function editor(id,draft){const isNew=id.startsWith('new:');cur=draft??(isNew?{type:id.slice(4),title:'',summary:'',aliases:[],fields:{},body:'',gallery:[],id:''}:structuredClone(byId(id)));if(!cur)return app.innerHTML='<p>Missing entry</p>';cur.fields??={};cur.gallery??=[];
-const fl=T[cur.type]?.[1]||[];
+function editor(id,sceneKey,draft){const isNew=id.startsWith('new:');cur=draft??(isNew?{type:id.slice(4),title:scenes[sceneKey]?.title||'',summary:'',aliases:[],fields:{},body:'',gallery:[],id:sceneKey||''}:structuredClone(byId(id)));if(!cur)return app.innerHTML='<p>Missing entry</p>';cur.fields??={};cur.gallery??=[];
+const fl=[...(T[cur.type]?.[1]||[]),...(cur.type==='place'?placeFields:[])];
 app.innerHTML=`<h1>${isNew?'New':'Edit'} ${T[cur.type]?.[0]||cur.type}</h1><form id="ef"><label>Title<input id="t" required value="${esc(cur.title)}"></label><label>Stable ID (set once; links use it)<input id="i" ${isNew?'':'readonly'} placeholder="e.g. char-issa (blank = generated)" value="${esc(cur.id)}"></label><label>Type<select id="ty">${[...Object.keys(T)].map(k=>`<option ${k==cur.type?'selected':''}>${k}</option>`).join('')}</select></label>
 <label>Aliases (comma separated)<input id="al" value="${esc((cur.aliases||[]).join(', '))}"></label><label>Summary<textarea class="lk" id="su" style="min-height:4rem">${esc(cur.summary)}</textarea></label>
-${fl.map(k=>`<label>${label(k)}<input class="lk" data-f="${k}" list="${k=='kind'?'kd':''}" value="${esc(cur.fields[k]||'')}"></label>`).join('')}<datalist id="kd"><option>country<option>settlement<option>landmark<option>region</datalist>
-${cur.type=='place'||cur.type=='event'?`<label>Map x,y (0–1 across the artwork; or place with the atlas)<input id="xy" value="${cur.x!=null?cur.x.toFixed(4)+', '+cur.y.toFixed(4):''}"></label>`:''}
+${fl.map(k=>`<label>${label(k)}<input class="lk" data-f="${k}" placeholder="${placeHints[k]||''}" list="${k=='kind'?'kd':''}" value="${esc(cur.fields[k]||'')}"></label>`).join('')}<datalist id="kd"><option>country<option>settlement<option>landmark<option>region</datalist>
+${cur.type=='place'||cur.type=='event'?`<label>Map x,y (0–1 across the artwork; or place with the atlas)<input id="xy" value="${cur.x!=null?cur.x+', '+cur.y:''}"></label>`:''}
 <label>Article (Markdown; # headings, [[id|text]] links)<textarea class="lk" id="bo">${esc(cur.body)}</textarea></label>
 <div class="picker"><b>Insert link</b><br><input id="pq" placeholder="Search entries" autocomplete="off"><div id="pr"></div><input id="pt" placeholder="Displayed text"><button type="button" id="pi">Insert link</button></div>
 <h2>Artwork</h2><div class="gal" id="gl"></div><label>Add image<input type="file" id="up" accept="image/*"></label>
@@ -169,7 +192,7 @@ $('#up').onchange=e=>{
 $('#ty').onchange=()=>{
   if(!collect()) { $('#ty').value=cur.type; return; }
   cur.type=$('#ty').value;
-  editor(id,cur);
+  editor(id,sceneKey,cur);
 };
 const collect=()=>{
   const coordinates=$('#xy')?.value.trim();
@@ -183,10 +206,16 @@ const collect=()=>{
   } else if($('#xy')) { delete cur.x; delete cur.y; }
   cur.title=$('#t').value;
   cur.id=$('#i').value.trim();
-  cur.aliases=$('#al').value.split(',').map(value=>value.trim()).filter(Boolean);
-  cur.summary=$('#su').value;
-  cur.body=$('#bo').value;
-  $$('[data-f]').forEach(input=>cur.fields[input.dataset.f]=input.value);
+  const aliases=$('#al').value.split(',').map(value=>value.trim()).filter(Boolean);
+  if(aliases.length||Object.hasOwn(cur,'aliases'))cur.aliases=aliases;
+  for(const [key,selector] of [['summary','#su'],['body','#bo']]){
+    const value=$(selector).value;
+    if(value||Object.hasOwn(cur,key))cur[key]=value;
+  }
+  for(const input of $$('[data-f]')){
+    const key=input.dataset.f;
+    if(input.value||Object.hasOwn(cur.fields,key))cur.fields[key]=input.value;
+  }
   return true;
 };
 if($('#del'))$('#del').onclick=async()=>{if(confirm('Delete this entry? Links to it will show as missing.')){await remove('entry',id);location.hash='#/'}};
@@ -194,61 +223,203 @@ $('#ef').onsubmit=async ev=>{ev.preventDefault();if(!collect())return;if(cur.id&
   .map(([id,{file}])=>[id,file]));
 const r=useChange(await archive.saveEntry(cur,files));location.hash='#/e/'+r.id}}
 function timeline(){const evs=S.entries.filter(e=>e.type=='event');app.innerHTML=`<h1>World timeline</h1><p><label>Filter by entry <input id="tf" list="dl" style="width:16rem"></label> <label>Book <input id="tb" style="width:8rem"></label></p><div id="tl"></div>${dl()}`;
-const draw=()=>{const id=pickId($('#tf').value),bk=norm($('#tb').value);const l=evs.filter(e=>(!$('#tf').value||(id&&refsOf(e).has(id)))&&(!bk||norm(e.fields?.book).includes(bk))).sort((a,b)=>yr(a.fields?.date)-yr(b.fields?.date));$('#tl').innerHTML=l.map(e=>`<p><b>${esc(e.fields?.date||'undated')}</b> <a class="ent" href="#/e/${e.id}" data-id="${e.id}">${esc(e.title)}</a>${tgt(e)?` <a href="#/atlas/${tgt(e)}">map</a>`:''}<br><small>${esc(e.summary||'')}</small></p>`).join('')||'<p class="mute">No matching events.</p>'};$('#tf').oninput=$('#tb').oninput=draw;draw()}
+const draw=()=>{const id=pickId($('#tf').value),bk=norm($('#tb').value);const l=evs.filter(e=>(!$('#tf').value||(id&&refsOf(e).has(id)))&&(!bk||norm(e.fields?.book).includes(bk))).sort((a,b)=>compareDates(a.fields?.date,b.fields?.date));$('#tl').innerHTML=l.map(e=>`<p><b>${esc(e.fields?.date||'undated')}</b> <a class="ent" href="#/e/${e.id}" data-id="${e.id}">${esc(e.title)}</a>${tgt(e)?` <a href="#/atlas/${tgt(e)}">map</a>`:''}<br><small>${esc(e.summary||'')}</small></p>`).join('')||'<p class="mute">No matching events.</p>'};$('#tf').oninput=$('#tb').oninput=draw;draw()}
 /* atlas + journey board */
-let curJ=null,view={x:0,y:0,k:1},layers={country:1,settlement:1,landmark:1,journey:1},editPins=false,pend=null,sel=null,scrub=null,prev=null,pickPl='';
+const trialPositions=new Map();
+let curJ=null,character=null,waypointEdit=null,view=null,layers={country:1,settlement:1,landmark:1,journey:1},editPins=false,pend=null,sel=null,scrub=null,prev=null,pickPl='';
 const COL=['#8fe9ff','#f2c46d','#e58fb0','#9bf09b','#c4a6ff','#ff9a6b'];const clamp=v=>Math.max(0,Math.min(1,v));
-function atlas(focus){app.classList.add('wide');app.innerHTML=`<div class="atl" aria-label="Atlas"><div id="vp"><div id="pan"><img id="base" alt="Atlas of Ór’esař"><svg id="ov"></svg><div id="pins"></div></div><div class="zb"><button id="zi" aria-label="Zoom in">+</button><button id="zo" aria-label="Zoom out">−</button></div></div><aside id="side"></aside></div>`;
+function dateParts(value){
+  const match=String(value||'').match(/(-?\d{1,6})(?:-(\d{1,2})(?:-(\d{1,2}))?)?/);
+  return match?[+match[1],+(match[2]||0),+(match[3]||0)]:[Infinity,0,0];
+}
+function compareDates(a,b){
+  const first=dateParts(a),second=dateParts(b);
+  for(let i=0;i<3;i++)if(first[i]!==second[i])return first[i]<second[i]?-1:1;
+  return String(a||'').localeCompare(String(b||''));
+}
+function atlas(focus,board=false){app.classList.add('wide');app.innerHTML=`<nav class="map-switch" aria-label="Map mode"><a href="#/atlas" ${board?'':'aria-current="page"'}>Atlas</a><a href="#/board" ${board?'aria-current="page"':''}>Strategy Board</a></nav><div class="atl"><div id="vp"><div id="pan"><img id="base" alt="Atlas of Ór’esař"><svg id="ov"></svg><div id="pins"></div></div><div class="zb"><button id="zi" aria-label="Zoom in">+</button><button id="zo" aria-label="Zoom out">−</button></div></div><aside id="side"></aside></div>${board?'<div class="scrubber"><label for="sc">Journey date</label><input type="range" id="sc" min="0" value="0" disabled><output for="sc" id="date-output"></output></div>':''}`;
+if(board&&!curJ)curJ=S.journeys[0]?.id||null;
 const vp=$('#vp'),pan=$('#pan'),img=$('#base');img.src=prev?prev.url:(S.map.file?archive.mediaUrl(S.map.file):'');
-const tf=()=>{pan.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.k})`;pan.style.setProperty('--k',view.k)};
-const zoom=(f,cx=vp.clientWidth/2,cy=vp.clientHeight/2)=>{const k=Math.max(.5,Math.min(12,view.k*f));view.x=cx-(cx-view.x)*k/view.k;view.y=cy-(cy-view.y)*k/view.k;view.k=k;tf()};
+const tf=()=>{if(!view)return;pan.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.k})`;pan.style.setProperty('--k',view.k)};
+const zoom=(f,cx=vp.clientWidth/2,cy=vp.clientHeight/2)=>{if(!view)return;const k=Math.max(.15,Math.min(12,view.k*f));view.x=cx-(cx-view.x)*k/view.k;view.y=cy-(cy-view.y)*k/view.k;view.k=k;tf()};
 $('#zi').onclick=()=>zoom(1.4);$('#zo').onclick=()=>zoom(1/1.4);vp.onwheel=e=>{e.preventDefault();const b=vp.getBoundingClientRect();zoom(e.deltaY<0?1.15:1/1.15,e.clientX-b.left,e.clientY-b.top)};
-vp.onpointerdown=e=>{if(e.target.closest('.pin,.tok,.zb'))return;vp.setPointerCapture(e.pointerId);let sx=e.clientX,sy=e.clientY,mv=0;vp.onpointermove=m=>{view.x+=m.clientX-sx;view.y+=m.clientY-sy;sx=m.clientX;sy=m.clientY;mv=1;tf()};vp.onpointerup=u=>{vp.onpointermove=vp.onpointerup=null;if(!mv&&editPins&&pickPl){const b=pan.getBoundingClientRect(),p=[clamp((u.clientX-b.left)/b.width),clamp((u.clientY-b.top)/b.height)];commitPin(pickPl,p);pickPl=''}}};
-vp.onkeydown=e=>{const d={ArrowLeft:[1,0],ArrowRight:[-1,0],ArrowUp:[0,1],ArrowDown:[0,-1]}[e.key];if(d&&e.target==vp){view.x+=d[0]*40;view.y+=d[1]*40;tf()}};vp.tabIndex=0;
+vp.onpointerdown=e=>{if(!view||e.button!==0||e.target.closest('button,a,.zb'))return;vp.setPointerCapture(e.pointerId);let sx=e.clientX,sy=e.clientY,mv=0;vp.onpointermove=m=>{view.x+=m.clientX-sx;view.y+=m.clientY-sy;sx=m.clientX;sy=m.clientY;mv=1;tf()};vp.onpointerup=u=>{vp.onpointermove=vp.onpointerup=null;if(!mv&&(editPins||prev)&&pickPl){const b=pan.getBoundingClientRect(),p=[clamp((u.clientX-b.left)/b.width),clamp((u.clientY-b.top)/b.height)];commitPin(pickPl,p);pickPl=''}}};
+vp.onkeydown=e=>{const d={ArrowLeft:[1,0],ArrowRight:[-1,0],ArrowUp:[0,1],ArrowDown:[0,-1]}[e.key];if(view&&d&&e.target==vp){e.preventDefault();view.x+=d[0]*40;view.y+=d[1]*40;tf()}};vp.tabIndex=0;
 const R=()=>img.naturalHeight/img.naturalWidth||1;const pos=e=>pend&&pend[e.id]||[e.x,e.y];
-const stopPos=s=>{const p=s.place&&byId(s.place);return p&&p.x!=null?pos(p):[s.x,s.y]};
+const stopPos=s=>{const p=byId(s.place||s.event);return p&&p.x!=null?pos(p):[s.x,s.y]};
 async function commitPin(id,p){if(prev){pend[id]=p;draw();return}const e=structuredClone(byId(id));[e.x,e.y]=p;await save('entry',e);draw()}
-const J=()=>S.journeys.find(j=>j.id==curJ);const saveJ=async j=>{await save('journey',j);draw()};
-function dragEl(el,cb,end){el.onpointerdown=ev=>{ev.stopPropagation();el.setPointerCapture(ev.pointerId);let mv=0;el.onpointermove=m=>{mv=1;const b=pan.getBoundingClientRect();const x=clamp((m.clientX-b.left)/b.width),y=clamp((m.clientY-b.top)/b.height);el.style.left=x*100+'%';el.style.top=y*100+'%';el._p=[x,y]};el.onpointerup=()=>{el.onpointermove=el.onpointerup=null;if(mv&&el._p)end(el._p);else if(!mv&&cb)cb()}}}
-function draw(){if(!vp.isConnected)return;const r=R(),ov=$('#ov');ov.setAttribute('viewBox',`0 0 1000 ${1000*r}`);const j=J();let svg='',toks='';
-const dates=j?[...new Set(j.tokens.flatMap(t=>t.stops.map(s=>yr(s.date))).filter(d=>d<1e9))].sort((a,b)=>a-b):[];const at=scrub!=null&&scrub<dates.length?dates[scrub]:null;
-if(j&&layers.journey)j.tokens.forEach((t,i)=>{const c=COL[i%COL.length],st=t.stops.filter(s=>at==null||yr(s.date)<=at);const pts=st.map(s=>{const p=stopPos(s);return p[0]*1000+','+p[1]*1000*r});
-if(pts.length>1)svg+=`<polyline class="trace" pathLength="1" style="--c:${c}" stroke="${c}" points="${pts.join(' ')}"/>`;st.forEach(s=>{const p=stopPos(s);svg+=`<circle cx="${p[0]*1000}" cy="${p[1]*1000*r}" r="4" fill="${c}"><title>${esc(s.date||'')} ${esc(s.note||'')}</title></circle>`});
-const ch=byId(t.char),last=st[st.length-1],p=at==null?[t.x,t.y]:last&&stopPos(last);if(p)toks+=`<div class="tok" tabindex="0" data-t="${t.id}" style="--c:${c};left:${p[0]*100}%;top:${p[1]*100}%;${ch?.cover?`background-image:url(${media(ch.cover)})`:''}" title="${esc(ch?.title||'')}">${ch?.cover?'':esc((ch?.title||'?').slice(0,1))}</div>`});
-ov.innerHTML=svg;const k=e=>e.fields?.kind&&layers[e.fields.kind]!==undefined?e.fields.kind:'landmark';
+const J=()=>S.journeys.find(j=>j.id==curJ);
+const saveJ=async j=>{
+  const panel=$('#side');
+  panel.inert=true;
+  try{await save('journey',j);if(vp.isConnected)draw()}
+  finally{panel.inert=false}
+};
+function dragEl(el,end){
+  el.onpointerdown=ev=>{
+    if(ev.button!==0)return;
+    ev.stopPropagation();el.setPointerCapture(ev.pointerId);
+    let position;el.suppressClick=false;
+    const start=[ev.clientX,ev.clientY];
+    el.onpointermove=m=>{
+      if(!position&&Math.hypot(m.clientX-start[0],m.clientY-start[1])<4)return;
+      const bounds=pan.getBoundingClientRect();
+      position=[clamp((m.clientX-bounds.left)/bounds.width),clamp((m.clientY-bounds.top)/bounds.height)];
+      el.style.left=position[0]*100+'%';el.style.top=position[1]*100+'%';
+    };
+    const clear=()=>{el.onpointermove=el.onpointerup=el.onpointercancel=null};
+    el.onpointercancel=()=>{clear();draw(false)};
+    el.onpointerup=()=>{clear();if(position){el.suppressClick=true;end(position)}};
+  };
+}
+function draw(updateSide=true){if(!vp.isConnected)return;const r=R(),ov=$('#ov');ov.setAttribute('viewBox',`0 0 1000 ${1000*r}`);const j=board?J():null;let svg='',toks='';
+const dates=j?[...new Set(j.tokens.flatMap(t=>t.stops.map(s=>s.date)).filter(d=>Number.isFinite(dateParts(d)[0])))].sort(compareDates):[];
+const at=scrub!=null&&scrub<dates.length?dates[scrub]:null;
+if(board){
+  const slider=$('#sc');
+  slider.max=dates.length;slider.disabled=!dates.length;slider.value=at==null?dates.length:scrub;
+  $('#date-output').textContent=at??(dates.length?'Live positions':'No dated stops');
+  slider.setAttribute('aria-valuetext',$('#date-output').textContent);
+  slider.oninput=()=>{scrub=+slider.value;draw(false)};
+}
+if(j&&layers.journey)j.tokens.forEach((t,i)=>{
+  const c=COL[i%COL.length],st=[...t.stops].sort((a,b)=>compareDates(a.date,b.date));
+  const reached=s=>at==null||compareDates(s.date,at)<=0;
+  const point=s=>{const [x,y]=stopPos(s);return [x*1000,y*1000*r]};
+  st.forEach((s,n)=>{
+    const [x,y]=point(s);
+    if(n){const [x1,y1]=point(st[n-1]);svg+=`<line class="leg ${reached(s)?'':'future'}" stroke="${c}" x1="${x1}" y1="${y1}" x2="${x}" y2="${y}"/>`;}
+    svg+=`<circle cx="${x}" cy="${y}" r="4" fill="${c}" opacity="${reached(s)?1:.45}"><title>${esc(s.date||'')} ${esc(s.note||'')}</title></circle>`;
+  });
+  const ch=byId(t.char),last=st.filter(reached).at(-1),p=at==null?(trialPositions.get(t.id)||[t.x,t.y]):last&&stopPos(last);
+  if(p)toks+=`<button type="button" class="tok" data-t="${esc(t.id)}" aria-label="${esc(ch?.title||t.char)}" aria-pressed="${character===t.id}" style="--c:${c};left:${p[0]*100}%;top:${p[1]*100}%;${ch?.cover?`background-image:url(${media(ch.cover)})`:''}">${ch?.cover?'':esc((ch?.title||'?').slice(0,1))}</button>`;
+});
+ov.innerHTML=svg;const k=e=>['country','settlement','landmark'].includes(e.fields?.kind)?e.fields.kind:'landmark';
 $('#pins').innerHTML=S.entries.filter(e=>e.x!=null&&(e.type=='place'||e.type=='event')&&layers[k(e)]).map(e=>{const p=pos(e);return`<button class="pin k-${k(e)} ${sel==e.id?'sel':''}" data-id="${e.id}" style="left:${p[0]*100}%;top:${p[1]*100}%" aria-label="${esc(e.title)}"><span>${esc(e.title)}</span></button>`}).join('')+toks;
-$$('.pin').forEach(b=>{const id=b.dataset.id;const select=()=>{if(sel==id&&!editPins)location.hash='#/e/'+id;else{sel=id;draw();$$('.pin').find(pin=>pin.dataset.id===id)?.focus({preventScroll:true})}};if(editPins)dragEl(b,select,p=>commitPin(id,p));b.onclick=e=>{if(!editPins||e.detail===0)select()};b.onkeydown=e=>{const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(d&&editPins){e.preventDefault();const o=pos(byId(id)),s=e.shiftKey?.01:.002;commitPin(id,[clamp(o[0]+d[0]*s),clamp(o[1]+d[1]*s)])}}});
-$$('.tok').forEach(b=>{if(at!=null)return;const t=j.tokens.find(x=>x.id==b.dataset.t);dragEl(b,null,p=>{t.x=p[0];t.y=p[1];saveJ(j)})});side(dates,at)}
-function side(dates,at){const j=J(),e=sel&&byId(sel),places=S.entries.filter(x=>x.type=='place');
-$('#side').innerHTML=`${prev?`<h3>Previewing new artwork</h3><p>Drag pins into place over the new image. Routes follow linked places automatically.</p><button id="pv-save">Save as new version</button> <button id="pv-no">Cancel</button>`:''}
-${e?`<h3>${esc(e.title)}</h3><p>${esc(e.summary||'')}</p><a class="btn" href="#/e/${e.id}">Open article</a>`:'<p class="mute">Select a pin. Select it again to open its article.</p>'}
-<h3>Layers</h3>${Object.keys(layers).map(l=>`<label><input type="checkbox" data-l="${l}" ${layers[l]?'checked':''} style="width:auto"> ${label(l)}</label>`).join('')}
-<h3>Pins</h3><label><input type="checkbox" id="ep" ${editPins?'checked':''} style="width:auto"> Edit pins (drag, or arrow keys)</label>${editPins?`<select id="pp"><option value="">Place a pin for…</option>${places.filter(p=>p.x==null).map(p=>`<option value="${p.id}" ${pickPl==p.id?'selected':''}>${esc(p.title)}</option>`).join('')}</select>`:''}
-<h3>Journeys</h3><select id="js"><option value="">Choose journey…</option>${S.journeys.map(x=>`<option value="${x.id}" ${x.id==curJ?'selected':''}>${esc(x.title)} (${x.status})</option>`).join('')}</select><button id="nj">New journey</button>
-${j?`<label>Status <select id="st"><option ${j.status=='draft'?'selected':''}>draft</option><option ${j.status=='canon'?'selected':''}>canon</option></select></label><button id="tc">Add to canon timeline</button>
-<h3>Date scrubber</h3>${dates.length?`<input type="range" id="sc" aria-label="Journey date scrubber" min="0" max="${dates.length}" value="${scrub??dates.length}"><small>${at==null?'All stops (live positions)':'Up to '+at}</small>`:'<small>Add dated waypoints to scrub.</small>'}
-<h3>Tokens</h3><select id="ac"><option value="">Add character…</option>${S.entries.filter(x=>x.type=='character').map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join('')}</select>
-<input id="wd" placeholder="Waypoint date (e.g. 1203 or c. 1203-04)"><input id="wn" placeholder="Note"><input id="we" list="dl" placeholder="Linked event"><label><input type="checkbox" id="sn" checked style="width:auto"> Snap to nearest named place</label>
-${j.tokens.map((t,i)=>`<p style="border-left:3px solid ${COL[i%COL.length]};padding-left:.5rem"><b>${esc(byId(t.char)?.title||t.char)}</b> <button data-wp="${t.id}">Add waypoint here</button> <button data-rt="${t.id}" aria-label="Remove token">×</button><br>${t.stops.map((s,n)=>`<small>${n+1}. ${esc(s.date||'—')} ${s.place?esc(byId(s.place)?.title||''):'free'} ${esc(s.note||'')} <a href="#" data-rs="${t.id}:${n}">remove</a></small>`).join('<br>')}</p>`).join('')}`:''}
-<h3>Base artwork</h3><input type="file" id="mf" accept="image/*"><small>Choose a file to preview it under your pins before saving.</small>${(S.map.versions||[]).map((v,i)=>`<br><small>${new Date(v.at*1000).toLocaleString()} <a href="#" data-rv="${i}">restore</a></small>`).join('')}${dl()}`;
-$$('[data-l]').forEach(c=>c.onchange=()=>{layers[c.dataset.l]=c.checked;draw()});$('#ep').onchange=e=>{editPins=e.target.checked;draw()};if($('#pp'))$('#pp').onchange=e=>pickPl=e.target.value;
-$('#js').onchange=e=>{curJ=e.target.value||null;scrub=null;draw()};$('#nj').onclick=async()=>{const t=prompt('Journey or storyline name');if(!t)return;const r=await save('journey',{title:t,status:'draft',tokens:[]});curJ=r.id;draw()};
-if(j){$('#st').onchange=e=>{j.status=e.target.value;saveJ(j)};$('#tc').onclick=async()=>{const f=j.tokens.flatMap(t=>t.stops).sort((a,b)=>yr(a.date)-yr(b.date))[0];useChange(await archive.publishJourney(j,{id:'evt-journey-'+j.id,type:'event',title:'Journey: '+j.title,summary:'Canon journey imported from the strategy board.',fields:{date:f?.date||''},body:j.tokens.map(t=>`- [[${t.char}]]: `+t.stops.map(s=>s.place?`[[${s.place}]]`:'free point').join(' → ')).join('\n')}));draw();alert('Added to the timeline as an event.')};
-if($('#sc'))$('#sc').oninput=e=>{scrub=+e.target.value;draw()};$('#ac').onchange=e=>{if(!e.target.value)return;j.tokens.push({id:'t'+Date.now(),char:e.target.value,x:.5,y:.5,stops:[]});saveJ(j)};
-$$('[data-wp]').forEach(b=>b.onclick=()=>{const t=j.tokens.find(x=>x.id==b.dataset.wp);let s={x:t.x,y:t.y,date:$('#wd').value,note:$('#wn').value,event:pickId($('#we').value)||''};if($('#sn').checked){const c=S.entries.filter(x=>x.type=='place'&&x.x!=null).map(x=>[Math.hypot(x.x-t.x,(x.y-t.y)*R()),x]).sort((a,b)=>a[0]-b[0])[0];if(c&&c[0]<.04)s={...s,place:c[1].id,x:c[1].x,y:c[1].y}}t.stops.push(s);saveJ(j)});
-$$('[data-rt]').forEach(b=>b.onclick=()=>{j.tokens=j.tokens.filter(x=>x.id!=b.dataset.rt);saveJ(j)});$$('[data-rs]').forEach(a=>a.onclick=ev=>{ev.preventDefault();const[t,n]=a.dataset.rs.split(':');j.tokens.find(x=>x.id==t).stops.splice(+n,1);saveJ(j)})}
-$('#mf').onchange=e=>{const f=e.target.files[0];if(f){try{archive.imageFor(f)}catch(error){return alert(error.message)}if(prev)URL.revokeObjectURL(prev.url);prev={file:f,url:URL.createObjectURL(f)};pend={};atlas()}};
-$$('[data-rv]').forEach(a=>a.onclick=async ev=>{ev.preventDefault();const v=S.map.versions[+a.dataset.rv];if(confirm('Restore this artwork and its pin positions? The current version is kept.')){useChange(await archive.restoreMap(v));atlas()}});
-if($('#pv-no'))$('#pv-no').onclick=()=>{URL.revokeObjectURL(prev.url);prev=pend=null;atlas()};
-if($('#pv-save'))$('#pv-save').onclick=async()=>{
-  useChange(await archive.replaceMap(prev.file,pend));
-  URL.revokeObjectURL(prev.url);
-  prev=pend=null;
-  atlas();
-}}
-const place=()=>{const e=focus&&byId(focus);if(e&&tgt(e)){sel=tgt(e);const p=byId(sel);view.k=3.5;view.x=vp.clientWidth/2-p.x*vp.clientWidth*view.k;view.y=vp.clientHeight/2-p.y*vp.clientWidth*R()*view.k}else view={x:0,y:0,k:1}};
+$$('.pin').forEach(b=>{
+  const id=b.dataset.id, select=()=>{sel=id;draw();$$('.pin').find(pin=>pin.dataset.id===id)?.focus()};
+  b.onclick=e=>{if(!b.suppressClick||e.detail===0)select()};
+  if(editPins||prev)dragEl(b,p=>commitPin(id,p));
+  b.onkeydown=e=>{
+    const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];
+    if(d&&(editPins||prev)){e.preventDefault();const o=pos(byId(id)),step=e.shiftKey?.01:.002;commitPin(id,[clamp(o[0]+d[0]*step),clamp(o[1]+d[1]*step)])}
+  };
+});
+$$('.tok').forEach(b=>{
+  const t=j.tokens.find(x=>x.id===b.dataset.t);
+  b.onclick=e=>{if(!b.suppressClick||e.detail===0){character=t.id;waypointEdit=null;draw();$$('.tok').find(token=>token.dataset.t===t.id)?.focus()}};
+  if(!readOnly&&at==null){
+    const move=p=>{const changed=character!==t.id;character=t.id;trialPositions.set(t.id,p);if(changed)waypointEdit=null;draw(changed)};
+    dragEl(b,move);
+    b.onkeydown=ev=>{
+      const delta={ArrowLeft:[-.01,0],ArrowRight:[.01,0],ArrowUp:[0,-.01],ArrowDown:[0,.01]}[ev.key];
+      if(delta){ev.preventDefault();const [x,y]=trialPositions.get(t.id)||[t.x,t.y];move([clamp(x+delta[0]),clamp(y+delta[1])]);$$('.tok').find(item=>item.dataset.t===t.id)?.focus()}
+    };
+  }
+});
+if(updateSide)side();
+}
+function side(){
+  const j=board?J():null,e=byId(sel),places=S.entries.filter(x=>x.type==='place');
+  const token=j?.tokens.find(t=>t.id===character)||j?.tokens[0];
+  const stop=token?.stops[waypointEdit];
+  if(token)character=token.id;
+  const linkedValue=id=>{const linked=byId(id);return linked?`${linked.title} (${linked.id})`:id||''};
+  $('#side').innerHTML=`
+    ${prev?`<h3>Previewing new artwork</h3><p>Adjust pins over the replacement image before saving.</p><button id="pv-save">Save as new version</button> <button id="pv-no">Cancel</button>`:''}
+    ${board?`<h3>Journeys</h3><label>Journey <select id="js"><option value="">Choose journey…</option>${S.journeys.map(x=>`<option value="${esc(x.id)}" ${x.id===curJ?'selected':''}>${esc(x.title)} (${esc(x.status)})</option>`).join('')}</select></label>${readOnly?'':'<button id="nj">New journey</button>'}
+      ${j?`${readOnly?'':`<label>Status <select id="st">${j.status==='sample'?'<option selected>sample</option>':''}<option ${j.status==='draft'?'selected':''}>draft</option><option ${j.status==='canon'?'selected':''}>canon</option></select></label><button id="tc">Add to local timeline</button>`}
+      <h3>Waypoints</h3>${readOnly?'':`<label>Add character <select id="ac"><option value="">Choose character…</option>${S.entries.filter(x=>x.type==='character'&&!j.tokens.some(t=>t.char===x.id)).map(x=>`<option value="${esc(x.id)}">${esc(x.title)}</option>`).join('')}</select></label>`}
+      ${token?`<label>Selected character <select id="character">${j.tokens.map(t=>`<option value="${esc(t.id)}" ${t.id===token.id?'selected':''}>${esc(byId(t.char)?.title||t.char)}</option>`).join('')}</select></label>
+      <p class="mute">${readOnly?'Use the date strip to follow each character.':'Drag a token in live positions to try a location.'} Solid legs are travelled. Dashed legs are ahead.</p>
+      ${readOnly?'':`<form id="waypoint"><label>Date <input id="wd" value="${esc(stop?.date)}" placeholder="1328-04-02, 1328, or c. 1328"></label><label>Notes <input id="wn" value="${esc(stop?.note)}"></label><label>Linked place or event <input id="we" list="dl" value="${esc(linkedValue(stop?.place||stop?.event))}"></label>
+      <button>${stop?'Save waypoint':'Add waypoint'}</button>${stop?'<button id="cancel-waypoint" type="button">Cancel</button>':''}</form>`}
+      ${token.stops.map((s,n)=>`<div class="waypoint"><b>${esc(s.date||'Undated')}</b> ${[s.place,s.event].filter(Boolean).map(id=>`<a href="#/e/${encodeURIComponent(id)}">${esc(byId(id)?.title||id)}</a>`).join(' ')}<br>${esc(s.note||'')}${readOnly?'':`<br><button data-edit-stop="${n}">Edit</button> <button data-remove-stop="${n}">Remove</button>`}</div>`).join('')}
+      ${readOnly?'':'<button id="remove-character">Remove character from journey</button>'}`:''}`:''}`:''}
+    ${e?`<section class="pin-preview"><h3>${esc(e.title)}</h3>${e.cover?`<img src="${media(e.cover)}" alt="">`:''}<p>${esc(plain(e.summary))}</p><a class="btn" href="#/e/${encodeURIComponent(e.id)}">Open article</a></section>`:board?'':'<p class="mute">Select a pin to preview its article.</p>'}
+    <details ${editPins||prev?'open':''}><summary>${readOnly?'Map layers':'Map layers and artwork'}</summary>
+    <h3>Layers</h3>${Object.keys(layers).filter(l=>board||l!=='journey').map(l=>`<label><input type="checkbox" data-l="${l}" ${layers[l]?'checked':''} style="width:auto"> ${label(l)}</label> `).join('')}
+    ${readOnly?'':`<h3>Pins</h3><label><input type="checkbox" id="ep" ${editPins?'checked':''} style="width:auto"> Edit pins (drag, or arrow keys)</label>
+    ${editPins||prev?`<select id="pp"><option value="">Place a pin for…</option>${places.filter(p=>p.x==null).map(p=>`<option value="${esc(p.id)}" ${pickPl===p.id?'selected':''}>${esc(p.title)}</option>`).join('')}</select>`:''}
+    <h3>Base artwork</h3><label>Preview replacement<input type="file" id="mf" accept="image/*"></label>${(S.map.versions||[]).map((v,i)=>`<br><small>${new Date(v.at*1000).toLocaleString()} <button data-rv="${i}">Restore version</button></small>`).join('')}`}</details>${dl()}`;
+  $$('[data-l]').forEach(c=>c.onchange=()=>{layers[c.dataset.l]=c.checked;draw(false)});
+  if($('#ep'))$('#ep').onchange=e=>{editPins=e.target.checked;draw()};
+  if($('#pp'))$('#pp').onchange=e=>pickPl=e.target.value;
+  if(board){
+    $('#js').onchange=e=>{curJ=e.target.value||null;character=waypointEdit=scrub=null;draw()};
+    if($('#nj'))$('#nj').onclick=async()=>{const title=prompt('Journey or storyline name');if(!title?.trim())return;const r=await save('journey',{title:title.trim(),status:'draft',tokens:[]});curJ=r.id;character=waypointEdit=scrub=null;draw()};
+  }
+  if(j&&!readOnly){
+    $('#st').onchange=e=>{j.status=e.target.value;saveJ(j)};
+    $('#tc').onclick=async()=>{
+      const first=j.tokens.flatMap(t=>t.stops).sort((a,b)=>compareDates(a.date,b.date))[0];
+      useChange(await archive.publishJourney(j,{id:'evt-journey-'+j.id,type:'event',title:'Journey: '+j.title,summary:'Canon journey imported from the strategy board.',fields:{date:first?.date||''},body:j.tokens.map(t=>`- [[${t.char}]]: `+t.stops.map(s=>s.place?`[[${s.place}]]`:'free point').join(' → ')).join('\n')}));
+      draw();alert('Added to your local timeline as an event.');
+    };
+    $('#ac').onchange=e=>{if(!e.target.value)return;character=crypto.randomUUID();waypointEdit=null;scrub=null;j.tokens.push({id:character,char:e.target.value,x:.5,y:.5,stops:[]});saveJ(j)};
+  }
+  if(token){
+    $('#character').onchange=e=>{character=e.target.value;waypointEdit=null;draw()};
+  }
+  if(token&&!readOnly){
+    $('#waypoint').onsubmit=ev=>{
+      ev.preventDefault();
+      const value=$('#we').value.trim(),linked=byId(pickId(value));
+      if(value&&!['place','event'].includes(linked?.type)){alert('Choose a place or event from the archive.');return;}
+      const [x,y]=trialPositions.get(token.id)||[token.x,token.y];
+      const update={...(stop||{x,y}),date:$('#wd').value.trim(),note:$('#wn').value};
+      if(!stop||value!==linkedValue(stop.place||stop.event)){
+        delete update.place;delete update.event;
+        if(linked)update[linked.type]=linked.id;
+      }
+      if(stop)token.stops[waypointEdit]=update;else{token.stops.push(update);token.x=x;token.y=y;trialPositions.delete(token.id)}
+      waypointEdit=null;scrub=null;saveJ(j);
+    };
+    $$('[data-edit-stop]').forEach(b=>b.onclick=()=>{waypointEdit=+b.dataset.editStop;draw();$('#wd').focus()});
+    if($('#cancel-waypoint'))$('#cancel-waypoint').onclick=()=>{waypointEdit=null;draw()};
+    $$('[data-remove-stop]').forEach(b=>b.onclick=()=>{token.stops.splice(+b.dataset.removeStop,1);waypointEdit=scrub=null;saveJ(j)});
+    $('#remove-character').onclick=()=>{if(confirm('Remove this character and their waypoints from the journey?')){j.tokens=j.tokens.filter(t=>t.id!==token.id);character=waypointEdit=scrub=null;saveJ(j)}};
+  }
+if($('#mf'))$('#mf').onchange=e=>{const f=e.target.files[0];if(f){try{archive.imageFor(f)}catch(error){return alert(error.message)}if(prev)URL.revokeObjectURL(prev.url);prev={file:f,url:URL.createObjectURL(f)};pend={};atlas('',board)}};
+$$('[data-rv]').forEach(a=>a.onclick=async ev=>{ev.preventDefault();const v=S.map.versions[+a.dataset.rv];if(confirm('Restore this artwork and its pin positions? The current version is kept.')){useChange(await archive.restoreMap(v));atlas('',board)}});
+if($('#pv-no'))$('#pv-no').onclick=()=>{URL.revokeObjectURL(prev.url);prev=pend=null;atlas('',board)};if($('#pv-save'))$('#pv-save').onclick=async()=>{useChange(await archive.replaceMap(prev.file,pend));URL.revokeObjectURL(prev.url);prev=pend=null;atlas('',board)}}
+const place=()=>{
+  const height=vp.clientWidth*R();
+  if(!view){const k=Math.min(1,vp.clientHeight/height);view={x:(vp.clientWidth-vp.clientWidth*k)/2,y:(vp.clientHeight-height*k)/2,k}}
+  const e=focus&&byId(focus);
+  if(e&&tgt(e)){sel=tgt(e);const p=byId(sel),k=3.5;view={x:vp.clientWidth/2-p.x*vp.clientWidth*k,y:vp.clientHeight/2-p.y*height*k,k}}
+};
 img.onload=()=>{place();tf();draw()};if(img.complete&&img.naturalWidth){place();tf();draw()}else tf()}
-function route(){hideTip();clearDraftArtwork();const h=location.hash.slice(2).split('/').map(part=>{try{return decodeURIComponent(part)}catch{return part}});app.classList.remove('wide');
-({'':home,t:index,e:entry,edit:editor,atlas,timeline}[h[0]]||home)(h[1]||'')}
-start();
+function route(){hideTip();clearDraftArtwork();const hash=location.hash||'#/scene/camp';const h=hash.slice(2).split('/').map(part=>{try{return decodeURIComponent(part)}catch{return part}});app.classList.remove('wide');
+$$('#nav a').forEach(a=>{if(a.hash==='#/'+h[0])a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+$('#sr').replaceChildren();
+({'':home,t:index,e:entry,edit:readOnly?home:editor,atlas,board:id=>atlas(id,true),timeline,scene,realms:()=>spread(false),origins:()=>spread(true)}[h[0]]||home)(h[1]||'',h[2])}
+async function boot(){
+  $('#archive-error').hidden=true;
+  try{
+    const {loadArchive,openArchive}=await import('./archive-store.js');
+    const seed=await loadArchive();
+    try{
+      archive=await openArchive(seed);
+    }catch(error){
+      readOnly=true;
+      archive={data:seed,mediaUrl:file=>'./assets/'+encodeURIComponent(file)};
+      showError('Browser storage is unavailable. You can read the published archive. Editing requires browser storage.');
+      console.warn(error);
+    }
+    useChange({state:archive.data});
+    ready=true;
+    route();
+  }catch(error){
+    ready=false;
+    app.classList.remove('wide');
+    app.innerHTML=`<section role="alert"><h1>Archive unavailable</h1><p>${esc(error.message)}</p><button id="retry">Retry</button></section>`;
+    $('#retry').onclick=boot;
+  }
+}
+addEventListener('hashchange',()=>{if(ready)route()});
+addEventListener('unhandledrejection',event=>{
+  showError(event.reason?.message||'The archive could not save your changes.');
+});
+boot();
 </script></body></html>

@@ -4,4 +4,4 @@
 {"id":"place-caedaros","type":"place","title":"Caedaros","demo":true,"summary":"Demo harbour settlement.","fields":{"kind":"settlement"},"x":0.3,"y":0.32,"body":"A demo place used to test the atlas."},
 {"id":"evt-demo-meeting","type":"event","title":"The Demo Meeting","demo":true,"summary":"Issa and Rhea meet.","fields":{"date":"c. 1203","book":"Book 1","place":"[[place-caedaros]]","participants":"[[char-issa]], [[char-rhea]]"},"body":""}],
 "relationships":[{"id":"rel-demo-1","demo":true,"a":"char-issa","b":"char-rhea","kind":"partner","start":"1204","end":"","event":"evt-demo-meeting"}],
-"journeys":[{"id":"jr-demo","demo":true,"title":"Demo journey","status":"draft","tokens":[{"id":"t1","char":"char-issa","x":0.5,"y":0.45,"stops":[{"place":"place-caedaros","x":0.3,"y":0.32,"date":"1203","note":"Departs"},{"x":0.5,"y":0.45,"date":"1204","note":"Free point"}]}]}]}
+"journeys":[{"id":"jr-demo","demo":true,"title":"Demo journey","status":"sample","tokens":[{"id":"t1","char":"char-issa","x":0.5,"y":0.45,"stops":[{"place":"place-caedaros","x":0.3,"y":0.32,"date":"1203","note":"Departs"},{"x":0.5,"y":0.45,"date":"1204","note":"Free point"}]}]}]}

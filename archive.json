@@ -75,7 +75,7 @@
       "id": "jr-demo",
       "demo": true,
       "title": "Demo journey",
-      "status": "draft",
+      "status": "sample",
       "tokens": [
         {
           "id": "t1",

@@ -1,0 +1,5 @@
+# The archive uses the static root. Keep legacy Python distribution files out of the site.
+exclude:
+  - oresar-wiki.zip
+  - server.py
+  - demo/bad.json
