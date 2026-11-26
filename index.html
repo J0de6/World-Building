@@ -34,7 +34,18 @@ form label{display:block;margin-top:.6rem;color:var(--mute)}form input,form text
 @media(max-width:800px){.cols,.atl{grid-template-columns:1fr}.atl{height:auto}#vp{height:60vh}.cols .info{order:-1;position:static}}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style><link rel="stylesheet" href="./assets/archive.css"></head><body>
-<header class="top"><a class="brand" href="#/">Ór’esař</a><nav class="m" id="nav" aria-label="Main navigation"><a href="#/">Archive</a><a href="#/atlas">Atlas</a><a href="#/origins">Origins</a><a href="#/timeline">Timeline</a><a href="#/board">Strategy Board</a></nav><div style="margin-left:auto"><input id="q" type="search" placeholder="Search the archive" aria-label="Search" autocomplete="off"><div id="sr" role="listbox"></div></div></header>
+<header class="top">
+  <a class="brand" href="#/" aria-label="Ór’esař home">Ór’esař</a>
+  <nav class="m" id="nav" aria-label="Main navigation">
+    <a href="#/">Archive</a><a href="#/atlas">Atlas</a><a href="#/origins">Origins</a>
+    <a class="nav-tool" href="#/timeline">Timeline</a><a class="nav-tool" href="#/board">Strategy Board</a>
+  </nav>
+  <div class="archive-search">
+    <label for="q"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4 4"/></svg><span class="visually-hidden">Search Ór’esař</span></label>
+    <input id="q" type="search" placeholder="Search Ór’esař" autocomplete="off" aria-controls="sr">
+    <div id="sr" aria-label="Search results"></div>
+  </div>
+</header>
 <p id="archive-error" class="request-error" role="alert" hidden></p><main id="app"><p>Loading the archive…</p><noscript>Enable JavaScript to open the archive.</noscript></main><div id="tip" role="tooltip"></div>
 <script type="module">
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],app=$('#app');
@@ -84,13 +95,13 @@ const scenes={
   oresar:{title:'Ór’esař'},tiranog:{title:'Tiř’anÓg'},ashenlogh:{title:'Aşh’enløgħ'},
   'first-three':{title:'The First Three'},'splitting-of-kaos':{title:'The Splitting of Ka’os'},'gods-step-forward':{title:'The Gods Step Forward'}
 };
-const art=name=>new URL('./assets/scenes/'+name+'.webp',document.baseURI).href;
+const art=name=>new URL('./assets/scenes/'+name+(name==='harbour-map'?'.webp':'.jpg'),document.baseURI).href;
 const findScene=key=>byId(key)||S.entries.find(e=>scenes[key]&&norm(e.title)===norm(scenes[key].title));
 const sceneHref=key=>findScene(key)?'#/e/'+encodeURIComponent(findScene(key).id):'#/scene/'+encodeURIComponent(key);
 function artwork(value){
   if(typeof value!=='string')return '';
-  const scene=value.match(/^(?:\.\/|\/)?assets\/scenes\/([a-z-]+)\.webp$/);
-  return scene?art(scene[1]):/^[a-z0-9_.-]+$/i.test(value)?archive.mediaUrl(value):'';
+  const scene=value.match(/^(?:\.\/|\/)?(assets\/scenes\/[a-z0-9-]+\.(?:webp|jpg))$/);
+  return scene?new URL('./'+scene[1],document.baseURI).href:/^[a-z0-9_.-]+$/i.test(value)?archive.mediaUrl(value):'';
 }
 const placeFields=['sceneArtwork','sceneFocalPoint','sceneAccent','parentRegion','illustratedFeatures'];
 const placeHints={sceneArtwork:'Uploaded filename or bundled scene path',sceneFocalPoint:'65% 50%',sceneAccent:'#ab8b52',parentRegion:'Parent entry ID',illustratedFeatures:'Comma-separated entry IDs'};
@@ -100,10 +111,10 @@ function placeOpening(e,design={}){
   const accent=/^#[a-f0-9]{6}$/i.test(fields.sceneAccent)?fields.sceneAccent:design.accent||'#a6804c';
   const image=artwork(fields.sceneArtwork)||artwork(e.cover)||(design.art?art(design.art):'');
   const keys=fields.illustratedFeatures?fields.illustratedFeatures.split(',').map(v=>v.trim()).filter(Boolean):design.features||[];
-  return `<div style="--accent:${accent}"><section class="place-scene${image?'':' no-scene-image'}">${image?`<img src="${esc(image)}" style="object-position:${focal}" alt="">`:''}
+  return `<div style="--accent:${accent}"><section class="place-scene${image?'':' no-scene-image'}">${image?`<img src="${esc(image)}" style="--scene-focal:${focal}" alt="" fetchpriority="high">`:''}
     <div class="scene-copy"><h1>${esc(e.title)}</h1><div class="scene-actions">${parent?`<a href="${sceneHref(parent)}">‹ ${esc(findScene(parent)?.title||scenes[parent]?.title||parent)}</a>`:''}
-    <a class="btn" href="#/atlas${tgt(e)?'/'+encodeURIComponent(tgt(e)):''}">Open in atlas →</a></div></div></section>
-    ${keys.length?`<div class="place-features">${keys.map(key=>{const linked=findScene(key),spec=scenes[key];const img=artwork(linked?.fields?.sceneArtwork)||artwork(linked?.cover)||(spec?.art?art(spec.art):'');return `<a class="feature" href="${sceneHref(key)}">${img?`<img src="${esc(img)}" alt="">`:''}<strong>${esc(linked?.title||spec?.title||key)}</strong></a>`}).join('')}</div>`:''}</div>`;
+    <a class="btn" href="#/atlas${tgt(e)?'/'+encodeURIComponent(tgt(e)):''}">Open in atlas →</a></div>${e.summary?`<p>${inline(e.summary)}</p>`:''}</div></section>
+    ${keys.length?`<div class="place-features">${keys.map(key=>{const linked=findScene(key),spec=scenes[key];const img=artwork(linked?.fields?.sceneArtwork)||artwork(linked?.cover)||(spec?.art?art(spec.art):'');return `<a class="feature" href="${sceneHref(key)}">${img?`<img src="${esc(img)}" alt="" loading="lazy">`:''}<strong>${esc(linked?.title||spec?.title||key)}</strong></a>`}).join('')}</div>`:''}</div>`;
 }
 function scene(key){
   const saved=findScene(key), spec=scenes[key];
@@ -129,7 +140,36 @@ function spread(myth){
       <strong id="${titleId}">${esc(scenes[key].title)}</strong></a>`;
   }).join('')}</div></section>`;
 }
-function home(){app.innerHTML=`<h1>The Ór’esař Archive</h1><p class="sum">${S.entries.length?'Browse by section or search above.':'The archive is empty. Create the first entry from a section.'}</p><p><small>Edits and uploads are saved in this browser.</small></p><div class="archive-links"><a class="btn" href="#/realms">The Three Realms</a><a class="btn" href="${sceneHref('camp')}">Ar’noirai Main Camp</a><a class="btn" href="${sceneHref('al-krasna')}">Al-Krasna</a></div><div class="grid">`+Object.entries(T).map(([k,v])=>`<a class="card" href="#/t/${k}"><b>${v[0]}</b><br><small>${S.entries.filter(e=>e.type==k).length} entries</small></a>`).join('')+`<a class="card" href="#/t/journey"><b>Journeys</b><br><small>${S.journeys.length}</small></a></div>`}
+function home(){
+  app.classList.add('wide');
+  const featuredKeys=['camp','al-krasna'];
+  const sections=[...Object.entries(T).map(([key,[title]])=>[key,title,S.entries.filter(e=>e.type===key).length]),['journey','Journeys',S.journeys.length]];
+  app.innerHTML=`<section class="archive-hero">
+    <img src="${art('archive')}" alt="" fetchpriority="high">
+    <div class="archive-hero-copy">
+      <h1>The Ór’esař Archive</h1>
+      <a class="editorial-link" href="#/realms">Explore the Three Realms <span aria-hidden="true">↗</span></a>
+    </div>
+  </section>
+  <div class="archive-body">
+    <div class="archive-directory">
+      <h2>Browse the Archive</h2>
+      <nav aria-label="Archive sections">${sections.map(([key,title,count])=>`
+        <a href="#/t/${key}"><span>${title}</span><span class="directory-detail">${count ? count+' '+(count===1?'entry':'entries') : ''}<span aria-hidden="true"> ↗</span></span></a>`).join('')}
+      </nav>
+    </div>
+    <section class="archive-places" aria-labelledby="featured-places">
+      <h2 id="featured-places">Featured Places</h2>
+      ${featuredKeys.map(key=>{
+        const scene=scenes[key];
+        return `<a class="featured-place" href="${sceneHref(key)}">
+          <img src="${art(scene.art)}" alt="" loading="lazy">
+          <span>${esc(scene.title)} <span aria-hidden="true">↗</span></span>
+        </a>`;
+      }).join('')}
+    </section>
+  </div>`;
+}
 function index(t){if(t=='journey'){app.innerHTML=`<h1>Journeys</h1><p><a class="btn" href="#/board">Open strategy board</a></p><div class="grid">${S.journeys.map(j=>`<a class="card" href="#/board" data-j="${j.id}"><b>${esc(j.title)}</b><br><small>${j.status}</small></a>`).join('')||'<p class="mute">No journeys yet. Create one on the atlas.</p>'}</div>`;$$('[data-j]').forEach(a=>a.onclick=()=>curJ=a.dataset.j);return}
 const l=S.entries.filter(e=>e.type==t).sort((a,b)=>a.title.localeCompare(b.title));app.innerHTML=`<h1>${T[t]?.[0]||t}</h1>${readOnly?'':`<p><a class="btn" href="#/edit/new:${t}">New entry</a></p>`}<div class="grid">${l.map(e=>`<a class="card" href="#/e/${e.id}"><b>${esc(e.title)}</b><br><small>${esc(e.summary||'')}</small></a>`).join('')||'<p class="mute">Nothing here yet.</p>'}</div>`}
 let rf=null;
@@ -390,8 +430,8 @@ const place=()=>{
   if(e&&tgt(e)){sel=tgt(e);const p=byId(sel),k=3.5;view={x:vp.clientWidth/2-p.x*vp.clientWidth*k,y:vp.clientHeight/2-p.y*height*k,k}}
 };
 img.onload=()=>{place();tf();draw()};if(img.complete&&img.naturalWidth){place();tf();draw()}else tf()}
-function route(){hideTip();clearDraftArtwork();const hash=location.hash||'#/scene/camp';const h=hash.slice(2).split('/').map(part=>{try{return decodeURIComponent(part)}catch{return part}});app.classList.remove('wide');
-$$('#nav a').forEach(a=>{if(a.hash==='#/'+h[0])a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+function route(){hideTip();clearDraftArtwork();const hash=location.hash||'#/';const h=hash.slice(2).split('/').map(part=>{try{return decodeURIComponent(part)}catch{return part}});app.classList.remove('wide');
+$$('#nav a').forEach(a=>{const section=['t','e','edit','scene','realms'].includes(h[0])?'':h[0];if(a.hash==='#/'+section)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
 $('#sr').replaceChildren();
 ({'':home,t:index,e:entry,edit:readOnly?home:editor,atlas,board:id=>atlas(id,true),timeline,scene,realms:()=>spread(false),origins:()=>spread(true)}[h[0]]||home)(h[1]||'',h[2])}
 async function boot(){
