@@ -28,6 +28,16 @@ def put(k, d):
     db.execute('replace into docs values(?,?,?)', (k, d['id'], json.dumps(d, ensure_ascii=False))); db.commit(); return d
 def refs(d): return {m.strip() for m in LK.findall(json.dumps(d, ensure_ascii=False))}
 
+def valid_coordinates(x, y):
+    return all(type(value) in (int, float) and 0 <= value <= 1 for value in (x, y))
+
+def validate_entry_coordinates(entry):
+    x, y = entry.get('x'), entry.get('y')
+    if x is None and y is None:
+        return
+    if not valid_coordinates(x, y):
+        raise ValueError('Map coordinates must be a pair of numbers between 0 and 1.')
+
 def imp(data, dry):
     rep = {'create': 0, 'update': 0, 'errors': [], 'warnings': [], 'dry_run': dry}
     have = {e['id']: e for e in get('entry')}; names = {n(e['title']): e['id'] for e in have.values()}
@@ -38,6 +48,10 @@ def imp(data, dry):
             if (k, d['id']) in inc: rep['errors'].append('duplicate id in file: ' + d['id']); continue
             inc[(k, d['id'])] = d
             if k == 'entry':
+                try:
+                    validate_entry_coordinates(d)
+                except ValueError as error:
+                    rep['errors'].append(f"{d['id']}: {error}")
                 t = n(d.get('title', '')); o = names.get(t)
                 if o and o != d['id']: rep['warnings'].append(f"possible duplicate: '{d['title']}' ({d['id']}) matches existing {o}")
                 names[t] = d['id']
@@ -65,6 +79,9 @@ def bak():
     return b.getvalue()
 
 def apply_map(file, pins):
+    for position in (pins or {}).values():
+        if not isinstance(position, (list, tuple)) or len(position) != 2 or not valid_coordinates(*position):
+            raise ValueError('Map coordinates must be a pair of numbers between 0 and 1.')
     cur = one('map', 'current') or {'versions': []}
     if cur.get('file'):
         snap = {e['id']: [e['x'], e['y']] for e in get('entry') if e.get('x') is not None}
@@ -91,12 +108,20 @@ class H(BaseHTTPRequestHandler):
         if p.startswith('/media/'):
             f = os.path.join(M, os.path.basename(p))
             if os.path.isfile(f): return s.out(open(f, 'rb').read(), 200, mimetypes.guess_type(f)[0] or 'application/octet-stream')
-        if p == '/': return s.out(open(R + '/index.html', 'rb').read(), 200, 'text/html; charset=utf-8')
+        if p in ('/', '/index.html'):
+            with open(R + '/index.html', 'rb') as page:
+                html = page.read().replace(b'data-mode="demo"', b'data-mode="edit"', 1)
+            return s.out(html, 200, 'text/html; charset=utf-8')
         s.out({'error': 'not found'}, 404)
     def do_POST(s):
         u = urlparse(s.path); q = parse_qs(u.query); p = u.path; b = s.raw()
         try:
-            if p.startswith('/api/doc/') and p[9:] in ('entry', 'rel', 'journey'): return s.out(put(p[9:], json.loads(b)))
+            if p.startswith('/api/doc/') and p[9:] in ('entry', 'rel', 'journey'):
+                kind = p[9:]
+                record = json.loads(b)
+                if kind == 'entry':
+                    validate_entry_coordinates(record)
+                return s.out(put(kind, record))
             if p == '/api/upload':
                 ext = os.path.splitext(q.get('name', [''])[0])[1].lower()
                 if ext not in ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.svg'): return s.out({'error': 'unsupported image type'}, 400)

@@ -1,13 +1,17 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ór’esař Archive</title>
+<!doctype html><html lang="en" data-mode="demo"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Ór’esař Archive</title>
 <style>
 :root{--bg:#09110e;--pane:#0f1b17;--ink:#0d1728;--iv:#efe6d0;--mute:#a7a28c;--br:#b08d57;--gl:#8fe9ff;--gr:#2f6b4f}
 *{box-sizing:border-box}body{margin:0;background:radial-gradient(900px 500px at 85% -8%,#16304a66,transparent),var(--bg);color:var(--iv);font:19px/1.7 "Cormorant Garamond","Palatino Linotype",Palatino,Georgia,serif}
 a{color:var(--iv)}:focus-visible{outline:2px solid var(--gl);outline-offset:2px}
 header.top{display:flex;gap:1rem;align-items:center;flex-wrap:wrap;padding:.6rem 1.2rem;background:var(--ink);border-bottom:1px solid var(--br)}
 .brand{font-size:1.5rem;text-decoration:none;letter-spacing:.04em;color:var(--br)}.brand:before{content:"✦ ";color:var(--gl);text-shadow:0 0 10px var(--gl)}
-nav.m a{margin-right:.9rem;text-decoration:none;color:var(--mute)}nav.m a:hover{color:var(--iv)}
-#q{background:#0a1220;border:1px solid var(--br);color:var(--iv);padding:.3rem .7rem;font:inherit;border-radius:2px;width:15rem}
+nav.m{display:flex;flex-wrap:wrap;gap:.25rem .9rem;min-width:0}
+nav.m a{text-decoration:none;color:var(--mute)}nav.m a:hover{color:var(--iv)}
+.top-search{position:relative;margin-left:auto;max-width:100%}
+#q{background:#0a1220;border:1px solid var(--br);color:var(--iv);padding:.3rem .7rem;font:inherit;border-radius:2px;width:15rem;max-width:100%}
 #sr{position:absolute;z-index:20;background:var(--ink);border:1px solid var(--br);max-width:26rem}#sr a{display:block;padding:.3rem .8rem;text-decoration:none}#sr a:hover,#sr a:focus{background:#16304a}
+#sr:empty{display:none}
+.mode-notice{padding:.35rem 1.2rem;background:var(--pane);color:var(--mute);font-size:.9rem}
 main{max-width:1100px;margin:0 auto;padding:1.5rem 1.2rem 4rem}main.wide{max-width:none;padding:0}
 h1,h2,h3{font-weight:500;letter-spacing:.02em}h1{font-size:2.6rem;margin:.2rem 0}h2{border-bottom:1px solid var(--br);padding-bottom:.2rem;margin-top:2rem}
 small,.mute{color:var(--mute)}.sum{font-size:1.2rem;color:#d9d0b8}
@@ -31,10 +35,18 @@ form label{display:block;margin-top:.6rem;color:var(--mute)}form input,form text
 .tok{position:absolute;transform:translate(-50%,-50%) scale(calc(1/var(--k)));width:38px;height:38px;border-radius:50%;border:2px solid var(--c);background:#0d1728 center/cover;display:grid;place-items:center;font-size:15px;cursor:grab;box-shadow:0 0 10px var(--c);touch-action:none}
 .trace{fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:1;stroke-dashoffset:0;animation:draw 1.6s ease-out;filter:drop-shadow(0 0 3px var(--c))}@keyframes draw{from{stroke-dashoffset:1}}
 .zb{position:absolute;left:10px;top:10px;display:flex;flex-direction:column;gap:4px}#side{overflow:auto;padding:.8rem;background:var(--pane);border-left:1px solid var(--br);font-size:.9rem;line-height:1.45}#side h3{margin:.8rem 0 .3rem;font-size:1.1rem}#side input,#side select{max-width:100%;width:100%;margin:.15rem 0}
-@media(max-width:800px){.cols,.atl{grid-template-columns:1fr}.atl{height:auto}#vp{height:60vh}.cols .info{order:-1;position:static}}
+@media(max-width:800px){.cols,.atl{grid-template-columns:minmax(0,1fr)}.atl{height:auto}#vp{height:60vh}.cols .info{order:-1;position:static}}
+@media(max-width:600px){
+  header.top{gap:.55rem;padding:.55rem .8rem}
+  nav.m{order:1;flex-basis:100%;font-size:.9rem}
+  .top-search{flex:1 1 9rem;min-width:0}
+  #q{width:100%}
+  #sr{right:0;width:min(18rem,calc(100vw - 1.6rem))}
+}
 @media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style></head><body>
-<header class="top"><a class="brand" href="#/">Ór’esař</a><nav class="m" id="nav" aria-label="Sections"></nav><div style="margin-left:auto"><input id="q" type="search" placeholder="Search the archive" aria-label="Search" autocomplete="off"><div id="sr" role="listbox"></div></div></header>
+<header class="top"><a class="brand" href="#/">Ór’esař</a><nav class="m" id="nav" aria-label="Sections"></nav><div class="top-search"><input id="q" type="search" placeholder="Search the archive" aria-label="Search" autocomplete="off"><div id="sr" role="listbox"></div></div></header>
+<aside class="mode-notice" id="mode-notice" hidden>Read-only demo. Open the archive through its local Python server to edit your own world.</aside>
 <main id="app"></main><div id="tip" role="tooltip"></div>
 <script>
 const $=(s,r=document)=>r.querySelector(s),$$=(s,r=document)=>[...r.querySelectorAll(s)],app=$('#app');
@@ -45,8 +57,35 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 const label=k=>k.replace(/([A-Z])/g,' $1').replace(/^./,c=>c.toUpperCase());
 const slug=s=>norm(s).replace(/[^a-z0-9]+/g,'-');const yr=s=>{const m=String(s||'').match(/-?\d{1,6}/);return m?+m[0]:1e9};
 let S={entries:[],rels:[],journeys:[],map:{}};const byId=i=>S.entries.find(e=>e.id==i);
-async function load(){S=await(await fetch('/api/all')).json();$('#nav').innerHTML=Object.entries(T).filter(([k])=>k!='event').map(([k,v])=>`<a href="#/t/${k}">${v[0]}</a>`).join('')+`<a href="#/t/event">Events</a><a href="#/t/journey">Journeys</a><a href="#/timeline">Timeline</a><a href="#/atlas">Atlas</a>`}
-const api=(p,b,m='POST')=>fetch(p,{method:m,body:b==null?undefined:(typeof b=='string'||b instanceof Blob?b:JSON.stringify(b))}).then(r=>r.json());
+const readOnly = document.documentElement.dataset.mode === 'demo';
+const mediaUrl = file => (readOnly ? './assets/' : '/media/') + encodeURIComponent(file);
+async function readJSON(path, options) {
+  const response = await fetch(path, options);
+  if (!response.ok) throw new Error(`Request failed (HTTP ${response.status}).`);
+  if (!response.headers.get('content-type')?.includes('application/json')) {
+    throw new Error('The server returned a page where JSON data was expected.');
+  }
+  return response.json();
+}
+async function load() {
+  if (readOnly) {
+    const demo = await readJSON('./demo/demo.json');
+    S = {entries: demo.entries, rels: demo.relationships, journeys: demo.journeys, map: {file: 'base-map.jpg'}};
+  } else {
+    S = await readJSON('/api/all', {cache: 'no-store'});
+  }
+}
+async function api(path, body, method = 'POST') {
+  if (readOnly) throw new Error('This preview is read-only.');
+  const response = await fetch(path, {
+    method,
+    body: body == null || body instanceof Blob ? body : JSON.stringify(body)
+  });
+  if (!response.headers.get('content-type')?.includes('application/json')) throw new Error('The server did not return JSON.');
+  const result = await response.json();
+  if (!response.ok || result.error) throw new Error(result.error || `Request failed (HTTP ${response.status}).`);
+  return result;
+}
 const save=async(k,d)=>{const r=await api('/api/doc/'+k,d);await load();return r};
 const inline=s=>esc(s).replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,(m,id,t)=>{id=id.trim();const e=byId(id);return `<a class="ent${e?'':' dead'}" href="#/e/${id}" data-id="${id}">${t||(e?esc(e.title):id)}</a>`}).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i>$1</i>');
 const md=t=>String(t||'').split(/\n{2,}/).map(b=>{b=b.trim();let m;if(m=b.match(/^(#{1,2}) (.*)/))return `<h${m[1].length+1} id="${slug(m[2])}">${inline(m[2])}</h${m[1].length+1}>`;if(/^[-*] /.test(b))return'<ul>'+b.split('\n').map(l=>'<li>'+inline(l.replace(/^[-*] /,''))+'</li>').join('')+'</ul>';return b?'<p>'+inline(b).replace(/\n/g,'<br>')+'</p>':''}).join('');
@@ -54,7 +93,7 @@ const refsOf=e=>new Set([...JSON.stringify([e.summary,e.body,e.fields]).matchAll
 const tgt=e=>e.x!=null?e.id:[...refsOf(e)].map(byId).find(x=>x&&x.x!=null)?.id;
 /* hover preview */
 const plain=t=>String(t||'').replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,(m,i,x)=>x||byId(i.trim())?.title||i);const tip=$('#tip');const hideTip=()=>tip.style.display='none';
-function showTip(a){const e=byId(a.dataset.id);if(!e)return;tip.innerHTML=(e.cover?`<img src="/media/${e.cover}" alt="">`:'')+`<b>${esc(e.title)}</b> <small>${esc(T[e.type]?.[0]||e.type)}</small><p>${esc(plain(e.summary))}</p>`;const r=a.getBoundingClientRect();tip.style.display='block';tip.style.left=Math.max(4,Math.min(r.left+scrollX,innerWidth-330))+'px';tip.style.top=(r.bottom+scrollY+6)+'px'}
+function showTip(a){const e=byId(a.dataset.id);if(!e)return;tip.innerHTML=(e.cover?`<img src="${mediaUrl(e.cover)}" alt="">`:'')+`<b>${esc(e.title)}</b> <small>${esc(T[e.type]?.[0]||e.type)}</small><p>${esc(plain(e.summary))}</p>`;const r=a.getBoundingClientRect();tip.style.display='block';tip.style.left=Math.max(4,Math.min(r.left+scrollX,innerWidth-330))+'px';tip.style.top=(r.bottom+scrollY+6)+'px'}
 document.addEventListener('mouseover',e=>{const a=e.target.closest('a.ent');a?showTip(a):hideTip()});document.addEventListener('focusin',e=>{const a=e.target.closest?.('a.ent');a?showTip(a):hideTip()});document.addEventListener('keydown',e=>e.key=='Escape'&&hideTip());
 document.addEventListener('click',e=>{const t=e.target.closest('[data-s]');if(t){e.preventDefault();document.getElementById(t.dataset.s)?.scrollIntoView({behavior:'smooth'})}});
 /* search */
@@ -65,7 +104,7 @@ $('#sr').addEventListener('click',()=>{$('#q').value='';$('#sr').innerHTML=''});
 /* pages */
 function home(){app.innerHTML=`<h1>The Ór’esař Archive</h1><p class="sum">${S.entries.length?'Browse by section or search above.':'The archive is empty. Create the first entry, or import canon with <code>python3 server.py import file.json</code>.'}</p><div class="grid">`+Object.entries(T).map(([k,v])=>`<a class="card" href="#/t/${k}"><b>${v[0]}</b><br><small>${S.entries.filter(e=>e.type==k).length} entries</small></a>`).join('')+`<a class="card" href="#/t/journey"><b>Journeys</b><br><small>${S.journeys.length}</small></a></div>`}
 function index(t){if(t=='journey'){app.innerHTML=`<h1>Journeys</h1><p><a class="btn" href="#/atlas">Open strategy board</a></p><div class="grid">${S.journeys.map(j=>`<a class="card" href="#/atlas" data-j="${j.id}"><b>${esc(j.title)}</b><br><small>${j.status}</small></a>`).join('')||'<p class="mute">No journeys yet. Create one on the atlas.</p>'}</div>`;$$('[data-j]').forEach(a=>a.onclick=()=>curJ=a.dataset.j);return}
-const l=S.entries.filter(e=>e.type==t).sort((a,b)=>a.title.localeCompare(b.title));app.innerHTML=`<h1>${T[t]?.[0]||t}</h1><p><a class="btn" href="#/edit/new:${t}">New entry</a></p><div class="grid">${l.map(e=>`<a class="card" href="#/e/${e.id}"><b>${esc(e.title)}</b><br><small>${esc(e.summary||'')}</small></a>`).join('')||'<p class="mute">Nothing here yet.</p>'}</div>`}
+const l=S.entries.filter(e=>e.type==t).sort((a,b)=>a.title.localeCompare(b.title));app.innerHTML=`<h1>${T[t]?.[0]||t}</h1>${readOnly ? '' : `<p><a class="btn" href="#/edit/new:${t}">New entry</a></p>`}<div class="grid">${l.map(e=>`<a class="card" href="#/e/${e.id}"><b>${esc(e.title)}</b><br><small>${esc(e.summary||'')}</small></a>`).join('')||'<p class="mute">Nothing here yet.</p>'}</div>`}
 let rf=null;
 function entry(id){const e=byId(id);if(!e)return app.innerHTML=`<h1>Missing entry</h1><p>No entry with id <code>${esc(id)}</code>. <a href="#/">Home</a></p>`;
 const f=e.fields||{},heads=[...String(e.body||'').matchAll(/^(#{1,2}) (.+)$/gm)];
@@ -74,91 +113,284 @@ const t=tgt(e),gal=e.gallery||[],mine=S.rels.filter(r=>r.a==id||r.b==id),shown=m
 const evs=S.entries.filter(x=>x.type=='event'&&x.id!=id&&refsOf(x).has(id)).sort((a,b)=>yr(a.fields?.date)-yr(b.fields?.date));
 const back=S.entries.filter(x=>x.id!=id&&x.type!='event'&&refsOf(x).has(id));
 const fl=(T[e.type]?.[1]||[]).concat(Object.keys(f).filter(k=>!(T[e.type]?.[1]||[]).includes(k)));
-app.innerHTML=`<header><small>${T[e.type]?.[0]||e.type}</small><h1>${esc(e.title)}</h1>${e.aliases?.length?`<small>Also known as ${esc(e.aliases.join(', '))}</small>`:''}<p class="sum">${inline(e.summary)}</p><p><a class="btn" href="#/edit/${id}">Edit</a>${t?`<a class="btn" href="#/atlas/${t}">Show on map</a>`:''}</p></header>
+app.innerHTML=`<header><small>${T[e.type]?.[0]||e.type}</small><h1>${esc(e.title)}</h1>${e.aliases?.length?`<small>Also known as ${esc(e.aliases.join(', '))}</small>`:''}<p class="sum">${inline(e.summary)}</p><p>${readOnly ? '' : `<a class="btn" href="#/edit/${id}">Edit</a>`}${t?`<a class="btn" href="#/atlas/${t}">Show on map</a>`:''}</p></header>
 <div class="cols"><div class="main">${toc}${md(e.body)}
-${gal.length?`<h2>Gallery</h2><div class="gal">${gal.map(g=>`<figure><img loading="lazy" src="/media/${g.file}" alt="${esc(g.caption)}"><figcaption>${esc(g.caption)}</figcaption></figure>`).join('')}</div>`:''}
+${gal.length?`<h2>Gallery</h2><div class="gal">${gal.map(g=>`<figure><img loading="lazy" src="${mediaUrl(g.file)}" alt="${esc(g.caption)}"><figcaption>${esc(g.caption)}</figcaption></figure>`).join('')}</div>`:''}
 <h2>Relationships</h2><div>${Object.entries(KINDS).map(([k,v])=>`<button class="chip ${rf==k?'on':''}" data-rf="${k}">${v}</button>`).join('')}</div>
-<ul>${shown.map(r=>{const o=byId(r.a==id?r.b:r.a);return`<li><b>${KINDS[r.kind]||r.kind}</b>: <a class="ent" href="#/e/${o?.id}" data-id="${o?.id}">${esc(o?.title||'?')}</a> <small>${esc([r.start,r.end].filter(Boolean).join(' – '))}</small> ${r.event&&byId(r.event)?`<a class="ent" data-id="${r.event}" href="#/e/${r.event}">${esc(byId(r.event).title)}</a>`:''} <button data-dr="${r.id}" aria-label="Remove">×</button></li>`}).join('')||'<li class="mute">None recorded.</li>'}</ul>
-<form id="rf2"><input list="dl" id="ro" placeholder="Linked entry" required style="width:14rem"><select id="rk">${Object.entries(KINDS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select><input id="rs" placeholder="From" style="width:6rem"><input id="re" placeholder="To" style="width:6rem"><input id="rv" list="dl" placeholder="Event" style="width:10rem"><button>Add relationship</button></form>
+<ul>${shown.map(r=>{const o=byId(r.a==id?r.b:r.a);return`<li><b>${KINDS[r.kind]||r.kind}</b>: <a class="ent" href="#/e/${o?.id}" data-id="${o?.id}">${esc(o?.title||'?')}</a> <small>${esc([r.start,r.end].filter(Boolean).join(' – '))}</small> ${r.event&&byId(r.event)?`<a class="ent" data-id="${r.event}" href="#/e/${r.event}">${esc(byId(r.event).title)}</a>`:''} ${readOnly ? '' : `<button data-dr="${r.id}" aria-label="Remove">×</button>`}</li>`}).join('')||'<li class="mute">None recorded.</li>'}</ul>
+${readOnly ? '' : `<form id="rf2"><input list="dl" id="ro" placeholder="Linked entry" required style="width:14rem"><select id="rk">${Object.entries(KINDS).map(([k,v])=>`<option value="${k}">${v}</option>`).join('')}</select><input id="rs" placeholder="From" style="width:6rem"><input id="re" placeholder="To" style="width:6rem"><input id="rv" list="dl" placeholder="Event" style="width:10rem"><button>Add relationship</button></form>`}
 ${evs.length?`<h2>Timeline</h2><ul>${evs.map(x=>`<li><small>${esc(x.fields?.date||'')}</small> <a class="ent" href="#/e/${x.id}" data-id="${x.id}">${esc(x.title)}</a></li>`).join('')}</ul>`:''}
 ${back.length?`<h2>Mentioned in</h2><ul>${back.map(x=>`<li><a class="ent" href="#/e/${x.id}" data-id="${x.id}">${esc(x.title)}</a> <small>${esc(T[x.type]?.[0]||'')}</small></li>`).join('')}</ul>`:''}
-</div><aside class="info" aria-label="Infobox">${e.cover?`<img src="/media/${e.cover}" alt="${esc(e.title)}">`:''}<dl>${fl.filter(k=>f[k]).map(k=>`<dt>${label(k)}</dt><dd>${inline(f[k])}</dd>`).join('')}</dl></aside></div>${dl()}`;
+</div><aside class="info" aria-label="Infobox">${e.cover?`<img src="${mediaUrl(e.cover)}" alt="${esc(e.title)}">`:''}<dl>${fl.filter(k=>f[k]).map(k=>`<dt>${label(k)}</dt><dd>${inline(f[k])}</dd>`).join('')}</dl></aside></div>${dl()}`;
 $$('[data-rf]').forEach(b=>b.onclick=()=>{rf=rf==b.dataset.rf?null:b.dataset.rf;entry(id)});
 $$('[data-dr]').forEach(b=>b.onclick=async()=>{await api('/api/doc/rel/'+b.dataset.dr,null,'DELETE');await load();entry(id)});
-$('#rf2').onsubmit=async ev=>{ev.preventDefault();const o=pickId($('#ro').value);if(!o)return alert('Choose an existing entry from the list.');await save('rel',{a:id,b:o,kind:$('#rk').value,start:$('#rs').value,end:$('#re').value,event:pickId($('#rv').value)||''});entry(id)}}
+if ($('#rf2')) $('#rf2').onsubmit=async ev=>{ev.preventDefault();const o=pickId($('#ro').value);if(!o)return alert('Choose an existing entry from the list.');await save('rel',{a:id,b:o,kind:$('#rk').value,start:$('#rs').value,end:$('#re').value,event:pickId($('#rv').value)||''});entry(id)}}
 const dl=()=>`<datalist id="dl">${S.entries.map(e=>`<option value="${esc(e.title)} (${e.id})">`).join('')}</datalist>`;
 const pickId=v=>{const m=String(v).match(/\(([^()]+)\)\s*$/);return m&&byId(m[1])?m[1]:byId(v)?v:(S.entries.find(e=>norm(e.title)==norm(v))||{}).id};
 /* editor with link picker */
-let cur,lastF;
-function editor(id){const isNew=id.startsWith('new:');cur=isNew?{type:id.slice(4),title:'',summary:'',aliases:[],fields:{},body:'',gallery:[],id:''}:structuredClone(byId(id));if(!cur)return app.innerHTML='<p>Missing entry</p>';cur.fields??={};cur.gallery??=[];
+function editor(id, draft, coordinateText) {
+const isNew = id.startsWith('new:');
+const cur = draft ?? (isNew
+  ? {type:id.slice(4),title:'',summary:'',aliases:[],fields:{},body:'',gallery:[],id:''}
+  : structuredClone(byId(id)));
+if (!cur) return app.innerHTML = '<p>Missing entry</p>';
+cur.fields ??= {};
+cur.gallery ??= [];
+coordinateText ??= cur.x != null && cur.y != null ? cur.x + ', ' + cur.y : '';
+let lastF;
 const fl=T[cur.type]?.[1]||[];
 app.innerHTML=`<h1>${isNew?'New':'Edit'} ${T[cur.type]?.[0]||cur.type}</h1><form id="ef"><label>Title<input id="t" required value="${esc(cur.title)}"></label><label>Stable ID (set once; links use it)<input id="i" ${isNew?'':'readonly'} placeholder="e.g. char-issa (blank = generated)" value="${esc(cur.id)}"></label><label>Type<select id="ty">${[...Object.keys(T)].map(k=>`<option ${k==cur.type?'selected':''}>${k}</option>`).join('')}</select></label>
 <label>Aliases (comma separated)<input id="al" value="${esc((cur.aliases||[]).join(', '))}"></label><label>Summary<textarea class="lk" id="su" style="min-height:4rem">${esc(cur.summary)}</textarea></label>
 ${fl.map(k=>`<label>${label(k)}<input class="lk" data-f="${k}" list="${k=='kind'?'kd':''}" value="${esc(cur.fields[k]||'')}"></label>`).join('')}<datalist id="kd"><option>country<option>settlement<option>landmark<option>region</datalist>
-${cur.type=='place'||cur.type=='event'?`<label>Map x,y (0–1 across the artwork; or place with the atlas)<input id="xy" value="${cur.x!=null?cur.x.toFixed(4)+', '+cur.y.toFixed(4):''}"></label>`:''}
+${cur.type=='place'||cur.type=='event'?`<label>Map x,y (0–1 across the artwork; or place with the atlas)<input id="xy" value="${esc(coordinateText)}"></label>`:''}
 <label>Article (Markdown; # headings, [[id|text]] links)<textarea class="lk" id="bo">${esc(cur.body)}</textarea></label>
 <div class="picker"><b>Insert link</b><br><input id="pq" placeholder="Search entries" autocomplete="off"><div id="pr"></div><input id="pt" placeholder="Displayed text"><button type="button" id="pi">Insert link</button></div>
 <h2>Artwork</h2><div class="gal" id="gl"></div><label>Add image<input type="file" id="up" accept="image/*"></label>
-<p><button class="btn">Save entry</button> <a class="btn" href="#/${isNew?'':'e/'+id}">Cancel</a> ${isNew?'':'<button type="button" id="del">Delete</button>'}</p></form>${dl()}`;
+<p id="editor-error" role="alert"></p><p><button class="btn" type="submit">Save entry</button> <a class="btn" href="#/${isNew?'':'e/'+id}">Cancel</a> ${isNew?'':'<button type="button" id="del">Delete</button>'}</p></form>${dl()}`;
 $('#ef').addEventListener('focusin',e=>{if(e.target.classList.contains('lk'))lastF=e.target});lastF=$('#bo');let sel=null;
 $('#pq').oninput=e=>{$('#pr').innerHTML=search(e.target.value).slice(0,6).map(x=>`<button type="button" data-p="${x.id}">${esc(x.title)}</button> `).join('');$$('[data-p]').forEach(b=>b.onclick=()=>{sel=b.dataset.p;$('#pt').value=byId(sel).title;$('#pr').innerHTML='Selected: <b>'+esc(byId(sel).title)+'</b>'})};
 $('#pi').onclick=()=>{if(!sel)return alert('Search and choose an entry first.');const t=$('#pt').value,s=`[[${sel}${t&&t!=byId(sel).title?'|'+t:''}]]`,el=lastF;el.setRangeText(s,el.selectionStart,el.selectionEnd,'end');el.focus()};
-const gl=()=>{$('#gl').innerHTML=cur.gallery.map((g,i)=>`<figure><img src="/media/${g.file}" alt=""><input data-c="${i}" value="${esc(g.caption)}" placeholder="Caption (age, outfit, scene)"><label><input type="radio" name="cv" data-cv="${g.file}" ${cur.cover==g.file?'checked':''} style="width:auto"> Cover</label><button type="button" data-x="${i}">Remove</button></figure>`).join('');$$('[data-c]').forEach(i=>i.oninput=()=>cur.gallery[i.dataset.c].caption=i.value);$$('[data-cv]').forEach(r=>r.onchange=()=>cur.cover=r.dataset.cv);$$('[data-x]').forEach(b=>b.onclick=()=>{cur.gallery.splice(b.dataset.x,1);gl()})};gl();
-$('#up').onchange=async e=>{const f=e.target.files[0];if(!f)return;const r=await api('/api/upload?name='+encodeURIComponent(f.name),f);if(r.error)return alert(r.error);cur.gallery.push({file:r.file,caption:''});cur.cover??=r.file;gl()};
-$('#ty').onchange=()=>{cur.type=$('#ty').value;collect();editor((isNew?'new:'+cur.type:id))};
-const collect=()=>{cur.title=$('#t').value;cur.id=$('#i').value.trim();cur.aliases=$('#al').value.split(',').map(s=>s.trim()).filter(Boolean);cur.summary=$('#su').value;cur.body=$('#bo').value;$$('[data-f]').forEach(i=>cur.fields[i.dataset.f]=i.value);const xy=$('#xy')?.value.split(',').map(Number);if(xy&&xy.length==2&&xy.every(isFinite)&&$('#xy').value.trim())[cur.x,cur.y]=xy;};
+const gl=()=>{$('#gl').innerHTML=cur.gallery.map((g,i)=>`<figure><img src="${mediaUrl(g.file)}" alt=""><input data-c="${i}" value="${esc(g.caption)}" placeholder="Caption (age, outfit, scene)"><label><input type="radio" name="cv" data-cv="${g.file}" ${cur.cover==g.file?'checked':''} style="width:auto"> Cover</label><button type="button" data-x="${i}">Remove</button></figure>`).join('');$$('[data-c]').forEach(i=>i.oninput=()=>cur.gallery[i.dataset.c].caption=i.value);$$('[data-cv]').forEach(r=>r.onchange=()=>cur.cover=r.dataset.cv);$$('[data-x]').forEach(b=>b.onclick=()=>{cur.gallery.splice(b.dataset.x,1);gl()})};gl();
+const editorError = $('#editor-error');
+const showEditorError = message => editorError.textContent = message;
+$('#up').onchange = async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const typeInput = $('#ty'), saveButton = $('#ef button[type="submit"]');
+  typeInput.disabled = saveButton.disabled = true;
+  try {
+    const uploaded = await api('/api/upload?name=' + encodeURIComponent(file.name), file);
+    cur.gallery.push({file: uploaded.file, caption: ''});
+    cur.cover ??= uploaded.file;
+    if (e.target.isConnected) gl();
+  } catch (error) {
+    if (e.target.isConnected) showEditorError(error.message);
+  } finally {
+    typeInput.disabled = saveButton.disabled = false;
+  }
+};
+function collect() {
+  cur.title = $('#t').value;
+  cur.id = $('#i').value.trim();
+  cur.aliases = $('#al').value.split(',').map(s => s.trim()).filter(Boolean);
+  cur.summary = $('#su').value;
+  cur.body = $('#bo').value;
+  $$('.lk[data-f]').forEach(input => cur.fields[input.dataset.f] = input.value);
+  coordinateText = $('#xy')?.value ?? coordinateText;
+}
+$('#ty').onchange = event => {
+  collect();
+  cur.type = event.target.value;
+  editor(id, cur, coordinateText);
+  $('#ty').focus();
+};
+$('#xy')?.addEventListener('input', event => event.target.setCustomValidity(''));
 if($('#del'))$('#del').onclick=async()=>{if(confirm('Delete this entry? Links to it will show as missing.')){await api('/api/doc/entry/'+id,null,'DELETE');await load();location.hash='#/'}};
-$('#ef').onsubmit=async ev=>{ev.preventDefault();collect();if(isNew&&cur.id&&byId(cur.id))return alert('That ID already exists.');if(!cur.id)delete cur.id;const r=await save('entry',cur);location.hash='#/e/'+r.id}}
+$('#ef').onsubmit = async event => {
+  event.preventDefault();
+  showEditorError('');
+  collect();
+  const coordInput = $('#xy');
+  if (coordInput) {
+    const parts = coordinateText.split(',').map(part => part.trim());
+    const coordinates = parts.map(Number);
+    if (coordinateText.trim() && (parts.length !== 2 || parts.some(part => !part) ||
+        coordinates.some(value => !Number.isFinite(value) || value < 0 || value > 1))) {
+      coordInput.setCustomValidity('Enter two coordinates between 0 and 1, separated by a comma.');
+      coordInput.reportValidity();
+      return;
+    }
+    if (coordinateText.trim()) [cur.x, cur.y] = coordinates;
+    else {
+      delete cur.x;
+      delete cur.y;
+    }
+  }
+  if (isNew && cur.id && byId(cur.id)) {
+    showEditorError('That ID already exists.');
+    return;
+  }
+  const button = event.submitter;
+  if (button) button.disabled = true;
+  try {
+    const record = await save('entry', cur);
+    location.hash = '#/e/' + record.id;
+  } catch (error) {
+    showEditorError(error.message);
+  } finally {
+    if (button) button.disabled = false;
+  }
+};
+}
 function timeline(){const evs=S.entries.filter(e=>e.type=='event');app.innerHTML=`<h1>World timeline</h1><p><label>Filter by entry <input id="tf" list="dl" style="width:16rem"></label> <label>Book <input id="tb" style="width:8rem"></label></p><div id="tl"></div>${dl()}`;
 const draw=()=>{const id=pickId($('#tf').value),bk=norm($('#tb').value);const l=evs.filter(e=>(!$('#tf').value||(id&&refsOf(e).has(id)))&&(!bk||norm(e.fields?.book).includes(bk))).sort((a,b)=>yr(a.fields?.date)-yr(b.fields?.date));$('#tl').innerHTML=l.map(e=>`<p><b>${esc(e.fields?.date||'undated')}</b> <a class="ent" href="#/e/${e.id}" data-id="${e.id}">${esc(e.title)}</a>${tgt(e)?` <a href="#/atlas/${tgt(e)}">map</a>`:''}<br><small>${esc(e.summary||'')}</small></p>`).join('')||'<p class="mute">No matching events.</p>'};$('#tf').oninput=$('#tb').oninput=draw;draw()}
 /* atlas + journey board */
 let curJ=null,view={x:0,y:0,k:1},layers={country:1,settlement:1,landmark:1,journey:1},editPins=false,pend=null,sel=null,scrub=null,prev=null,pickPl='';
 const COL=['#8fe9ff','#f2c46d','#e58fb0','#9bf09b','#c4a6ff','#ff9a6b'];const clamp=v=>Math.max(0,Math.min(1,v));
 function atlas(focus){app.classList.add('wide');app.innerHTML=`<div class="atl"><div id="vp"><div id="pan"><img id="base" alt="Atlas of Ór’esař"><svg id="ov"></svg><div id="pins"></div></div><div class="zb"><button id="zi" aria-label="Zoom in">+</button><button id="zo" aria-label="Zoom out">−</button></div></div><aside id="side"></aside></div>`;
-const vp=$('#vp'),pan=$('#pan'),img=$('#base');img.src=prev?prev.url:(S.map.file?'/media/'+S.map.file:'');
+const vp = $('#vp'), pan = $('#pan'), img = $('#base');
+const mapReady = () => img.naturalWidth > 0;
+const mapSource = prev?.url || (S.map.file && mediaUrl(S.map.file));
 const tf=()=>{pan.style.transform=`translate(${view.x}px,${view.y}px) scale(${view.k})`;pan.style.setProperty('--k',view.k)};
 const zoom=(f,cx=vp.clientWidth/2,cy=vp.clientHeight/2)=>{const k=Math.max(.5,Math.min(12,view.k*f));view.x=cx-(cx-view.x)*k/view.k;view.y=cy-(cy-view.y)*k/view.k;view.k=k;tf()};
 $('#zi').onclick=()=>zoom(1.4);$('#zo').onclick=()=>zoom(1/1.4);vp.onwheel=e=>{e.preventDefault();const b=vp.getBoundingClientRect();zoom(e.deltaY<0?1.15:1/1.15,e.clientX-b.left,e.clientY-b.top)};
-vp.onpointerdown=e=>{if(e.target.closest('.pin,.tok,.zb'))return;vp.setPointerCapture(e.pointerId);let sx=e.clientX,sy=e.clientY,mv=0;vp.onpointermove=m=>{view.x+=m.clientX-sx;view.y+=m.clientY-sy;sx=m.clientX;sy=m.clientY;mv=1;tf()};vp.onpointerup=u=>{vp.onpointermove=vp.onpointerup=null;if(!mv&&editPins&&pickPl){const b=pan.getBoundingClientRect(),p=[clamp((u.clientX-b.left)/b.width),clamp((u.clientY-b.top)/b.height)];commitPin(pickPl,p);pickPl=''}}};
+vp.onpointerdown=e=>{if(e.target.closest('.pin,.tok,.zb'))return;vp.setPointerCapture(e.pointerId);let sx=e.clientX,sy=e.clientY,mv=0;vp.onpointermove=m=>{view.x+=m.clientX-sx;view.y+=m.clientY-sy;sx=m.clientX;sy=m.clientY;mv=1;tf()};vp.onpointerup=u=>{vp.onpointermove=vp.onpointerup=null;if(!mv&&mapReady()&&editPins&&pickPl){const b=pan.getBoundingClientRect(),p=[clamp((u.clientX-b.left)/b.width),clamp((u.clientY-b.top)/b.height)];commitPin(pickPl,p);pickPl=''}}};
 vp.onkeydown=e=>{const d={ArrowLeft:[1,0],ArrowRight:[-1,0],ArrowUp:[0,1],ArrowDown:[0,-1]}[e.key];if(d&&e.target==vp){view.x+=d[0]*40;view.y+=d[1]*40;tf()}};vp.tabIndex=0;
 const R=()=>img.naturalHeight/img.naturalWidth||1;const pos=e=>pend&&pend[e.id]||[e.x,e.y];
 const stopPos=s=>{const p=s.place&&byId(s.place);return p&&p.x!=null?pos(p):[s.x,s.y]};
-async function commitPin(id,p){if(prev){pend[id]=p;draw();return}const e=structuredClone(byId(id));[e.x,e.y]=p;await save('entry',e);draw()}
+async function commitPin(id, position) {
+  if (readOnly || !(editPins || prev)) return;
+  if (prev) {
+    pend[id] = position;
+    draw();
+    return;
+  }
+  const entry = structuredClone(byId(id));
+  [entry.x, entry.y] = position;
+  try {
+    await save('entry', entry);
+  } catch (error) {
+    alert(error.message);
+  }
+  draw();
+}
 const J=()=>S.journeys.find(j=>j.id==curJ);const saveJ=async j=>{await save('journey',j);draw()};
-function dragEl(el,cb,end){el.onpointerdown=ev=>{ev.stopPropagation();el.setPointerCapture(ev.pointerId);let mv=0;el.onpointermove=m=>{mv=1;const b=pan.getBoundingClientRect();const x=clamp((m.clientX-b.left)/b.width),y=clamp((m.clientY-b.top)/b.height);el.style.left=x*100+'%';el.style.top=y*100+'%';el._p=[x,y]};el.onpointerup=()=>{el.onpointermove=el.onpointerup=null;if(mv&&el._p)end(el._p);else if(!mv&&cb)cb()}}}
-function draw(){const r=R(),ov=$('#ov');ov.setAttribute('viewBox',`0 0 1000 ${1000*r}`);const j=J();let svg='',toks='';
+function makeDraggable(element, onDrop) {
+  element.onpointerdown = start => {
+    if (!start.isPrimary || start.button !== 0) return;
+    element.setPointerCapture(start.pointerId);
+    const {left, top} = element.style;
+    let position;
+    element.onpointermove = move => {
+      if (move.pointerId !== start.pointerId) return;
+      if (!position && Math.hypot(move.clientX - start.clientX, move.clientY - start.clientY) < 4) return;
+      const bounds = pan.getBoundingClientRect();
+      const x = clamp((move.clientX - bounds.left) / bounds.width);
+      const y = clamp((move.clientY - bounds.top) / bounds.height);
+      position = [x, y];
+      element.style.left = x * 100 + '%';
+      element.style.top = y * 100 + '%';
+    };
+    element.onpointerup = element.onpointercancel = end => {
+      if (end.pointerId !== start.pointerId) return;
+      element.onpointermove = element.onpointerup = element.onpointercancel = null;
+      if (end.type === 'pointercancel') {
+        element.style.left = left;
+        element.style.top = top;
+      } else if (position) {
+        element.addEventListener('click', event => {
+          if (event.detail > 0) event.stopImmediatePropagation();
+        }, {capture:true, once:true});
+        onDrop(position);
+      }
+    };
+  };
+}
+function draw(refreshSidebar = true){const r=R(),ov=$('#ov');ov.setAttribute('viewBox',`0 0 1000 ${1000*r}`);const j=J();let svg='',toks='';
 const dates=j?[...new Set(j.tokens.flatMap(t=>t.stops.map(s=>yr(s.date))).filter(d=>d<1e9))].sort((a,b)=>a-b):[];const at=scrub!=null&&scrub<dates.length?dates[scrub]:null;
-if(j&&layers.journey)j.tokens.forEach((t,i)=>{const c=COL[i%COL.length],st=t.stops.filter(s=>at==null||yr(s.date)<=at);const pts=st.map(s=>{const p=stopPos(s);return p[0]*1000+','+p[1]*1000*r});
+if(mapReady()&&j&&layers.journey)j.tokens.forEach((t,i)=>{const c=COL[i%COL.length],st=t.stops.filter(s=>at==null||yr(s.date)<=at);const pts=st.map(s=>{const p=stopPos(s);return p[0]*1000+','+p[1]*1000*r});
 if(pts.length>1)svg+=`<polyline class="trace" pathLength="1" style="--c:${c}" stroke="${c}" points="${pts.join(' ')}"/>`;st.forEach(s=>{const p=stopPos(s);svg+=`<circle cx="${p[0]*1000}" cy="${p[1]*1000*r}" r="4" fill="${c}"><title>${esc(s.date||'')} ${esc(s.note||'')}</title></circle>`});
-const ch=byId(t.char),last=st[st.length-1],p=at==null?[t.x,t.y]:last&&stopPos(last);if(p)toks+=`<div class="tok" tabindex="0" data-t="${t.id}" style="--c:${c};left:${p[0]*100}%;top:${p[1]*100}%;${ch?.cover?`background-image:url(/media/${ch.cover})`:''}" title="${esc(ch?.title||'')}">${ch?.cover?'':esc((ch?.title||'?').slice(0,1))}</div>`});
+const ch=byId(t.char),last=st[st.length-1],p=at==null?[t.x,t.y]:last&&stopPos(last);if(p)toks+=`<div class="tok" tabindex="0" data-t="${t.id}" style="--c:${c};left:${p[0]*100}%;top:${p[1]*100}%;${ch?.cover?`background-image:url(${mediaUrl(ch.cover)})`:''}" title="${esc(ch?.title||'')}">${ch?.cover?'':esc((ch?.title||'?').slice(0,1))}</div>`});
 ov.innerHTML=svg;const k=e=>e.fields?.kind&&layers[e.fields.kind]!==undefined?e.fields.kind:'landmark';
-$('#pins').innerHTML=S.entries.filter(e=>e.x!=null&&(e.type=='place'||e.type=='event')&&layers[k(e)]).map(e=>{const p=pos(e);return`<button class="pin k-${k(e)} ${sel==e.id?'sel':''}" data-id="${e.id}" style="left:${p[0]*100}%;top:${p[1]*100}%" aria-label="${esc(e.title)}"><span>${esc(e.title)}</span></button>`}).join('')+toks;
-$$('.pin').forEach(b=>{const id=b.dataset.id;dragEl(b,()=>{if(sel==id&&!editPins)location.hash='#/e/'+id;else{sel=id;draw()}},p=>commitPin(id,p));b.onkeydown=e=>{const d={ArrowLeft:[-1,0],ArrowRight:[1,0],ArrowUp:[0,-1],ArrowDown:[0,1]}[e.key];if(d&&editPins){e.preventDefault();const o=pos(byId(id)),s=e.shiftKey?.01:.002;commitPin(id,[clamp(o[0]+d[0]*s),clamp(o[1]+d[1]*s)])}}});
-$$('.tok').forEach(b=>{if(at!=null)return;const t=j.tokens.find(x=>x.id==b.dataset.t);dragEl(b,null,p=>{t.x=p[0];t.y=p[1];saveJ(j)})});side(dates,at)}
+$('#pins').innerHTML=S.entries.filter(e=>mapReady()&&e.x!=null&&(e.type=='place'||e.type=='event')&&layers[k(e)]).map(e=>{const p=pos(e);return`<button class="pin k-${k(e)} ${sel==e.id?'sel':''}" data-id="${e.id}" style="left:${p[0]*100}%;top:${p[1]*100}%" aria-label="${esc(e.title)}"><span>${esc(e.title)}</span></button>`}).join('')+toks;
+$$('.pin').forEach(button => {
+  const id = button.dataset.id;
+  const canMove = !readOnly && (editPins || prev);
+  button.onclick = () => {
+    if (sel === id && !canMove) {
+      location.hash = '#/e/' + encodeURIComponent(id);
+      return;
+    }
+    sel = id;
+    $$('.pin').forEach(pin => pin.classList.toggle('sel', pin === button));
+    side(dates, at);
+  };
+  if (!canMove) return;
+  makeDraggable(button, position => commitPin(id, position));
+  button.onkeydown = event => {
+    const direction = {ArrowLeft:[-1,0], ArrowRight:[1,0], ArrowUp:[0,-1], ArrowDown:[0,1]}[event.key];
+    if (!direction) return;
+    event.preventDefault();
+    const [x, y] = pos(byId(id));
+    const step = event.shiftKey ? .01 : .002;
+    commitPin(id, [clamp(x + direction[0] * step), clamp(y + direction[1] * step)]).then(() => {
+      $$('.pin').find(pin => pin.dataset.id === id)?.focus();
+    });
+  };
+});
+$$('.tok').forEach(token => {
+  if (readOnly || at != null) return;
+  const character = j.tokens.find(t => t.id === token.dataset.t);
+  makeDraggable(token, position => {
+    [character.x, character.y] = position;
+    saveJ(j);
+  });
+});
+if (refreshSidebar) side(dates, at);
+else $('#scrub-label').textContent = at == null ? 'All stops (live positions)' : 'Up to ' + at;
+}
 function side(dates,at){const j=J(),e=sel&&byId(sel),places=S.entries.filter(x=>x.type=='place');
-$('#side').innerHTML=`${prev?`<h3>Previewing new artwork</h3><p>Drag pins into place over the new image. Routes follow linked places automatically.</p><button id="pv-save">Save as new version</button> <button id="pv-no">Cancel</button>`:''}
+$('#side').innerHTML=`${mapReady() ? '' : '<p class="mute">Map artwork is unavailable.</p>'}${prev?`<h3>Previewing new artwork</h3><p>Drag pins into place over the new image. Routes follow linked places automatically.</p><button id="pv-save">Save as new version</button> <button id="pv-no">Cancel</button>`:''}
 ${e?`<h3>${esc(e.title)}</h3><p>${esc(e.summary||'')}</p><a class="btn" href="#/e/${e.id}">Open article</a>`:'<p class="mute">Select a pin. Select it again to open its article.</p>'}
 <h3>Layers</h3>${Object.keys(layers).map(l=>`<label><input type="checkbox" data-l="${l}" ${layers[l]?'checked':''} style="width:auto"> ${label(l)}</label>`).join('')}
-<h3>Pins</h3><label><input type="checkbox" id="ep" ${editPins?'checked':''} style="width:auto"> Edit pins (drag, or arrow keys)</label>${editPins?`<select id="pp"><option value="">Place a pin for…</option>${places.filter(p=>p.x==null).map(p=>`<option value="${p.id}" ${pickPl==p.id?'selected':''}>${esc(p.title)}</option>`).join('')}</select>`:''}
-<h3>Journeys</h3><select id="js"><option value="">Choose journey…</option>${S.journeys.map(x=>`<option value="${x.id}" ${x.id==curJ?'selected':''}>${esc(x.title)} (${x.status})</option>`).join('')}</select><button id="nj">New journey</button>
-${j?`<label>Status <select id="st"><option ${j.status=='draft'?'selected':''}>draft</option><option ${j.status=='canon'?'selected':''}>canon</option></select></label><button id="tc">Add to canon timeline</button>
-<h3>Date scrubber</h3>${dates.length?`<input type="range" id="sc" min="0" max="${dates.length}" value="${scrub??dates.length}"><small>${at==null?'All stops (live positions)':'Up to '+at}</small>`:'<small>Add dated waypoints to scrub.</small>'}
-<h3>Tokens</h3><select id="ac"><option value="">Add character…</option>${S.entries.filter(x=>x.type=='character').map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join('')}</select>
-<input id="wd" placeholder="Waypoint date (e.g. 1203 or c. 1203-04)"><input id="wn" placeholder="Note"><input id="we" list="dl" placeholder="Linked event"><label><input type="checkbox" id="sn" checked style="width:auto"> Snap to nearest named place</label>
-${j.tokens.map((t,i)=>`<p style="border-left:3px solid ${COL[i%COL.length]};padding-left:.5rem"><b>${esc(byId(t.char)?.title||t.char)}</b> <button data-wp="${t.id}">Add waypoint here</button> <button data-rt="${t.id}" aria-label="Remove token">×</button><br>${t.stops.map((s,n)=>`<small>${n+1}. ${esc(s.date||'—')} ${s.place?esc(byId(s.place)?.title||''):'free'} ${esc(s.note||'')} <a href="#" data-rs="${t.id}:${n}">remove</a></small>`).join('<br>')}</p>`).join('')}`:''}
-<h3>Base artwork</h3><input type="file" id="mf" accept="image/*"><small>Choose a file to preview it under your pins before saving.</small>${(S.map.versions||[]).map((v,i)=>`<br><small>${new Date(v.at*1000).toLocaleString()} <a href="#" data-rv="${i}">restore</a></small>`).join('')}${dl()}`;
-$$('[data-l]').forEach(c=>c.onchange=()=>{layers[c.dataset.l]=c.checked;draw()});$('#ep').onchange=e=>{editPins=e.target.checked;draw()};if($('#pp'))$('#pp').onchange=e=>pickPl=e.target.value;
-$('#js').onchange=e=>{curJ=e.target.value||null;scrub=null;draw()};$('#nj').onclick=async()=>{const t=prompt('Journey or storyline name');if(!t)return;const r=await save('journey',{title:t,status:'draft',tokens:[]});curJ=r.id;draw()};
+${readOnly ? '' : `<h3>Pins</h3><label><input type="checkbox" id="ep" ${editPins?'checked':''} style="width:auto"> Edit pins (drag, or arrow keys)</label>${editPins?`<select id="pp"><option value="">Place a pin for…</option>${places.filter(p=>p.x==null).map(p=>`<option value="${p.id}" ${pickPl==p.id?'selected':''}>${esc(p.title)}</option>`).join('')}</select>`:''}`}
+<h3>Journeys</h3><select id="js"><option value="">Choose journey…</option>${S.journeys.map(x=>`<option value="${x.id}" ${x.id==curJ?'selected':''}>${esc(x.title)} (${x.status})</option>`).join('')}</select>${readOnly ? '' : '<button id="nj">New journey</button>'}
+${j?`${readOnly ? '' : `<label>Status <select id="st"><option ${j.status=='draft'?'selected':''}>draft</option><option ${j.status=='canon'?'selected':''}>canon</option></select></label><button id="tc">Add to canon timeline</button>`}
+<h3>Date scrubber</h3>${dates.length?`<input type="range" id="sc" aria-label="Journey date" min="0" max="${dates.length}" value="${scrub??dates.length}"><small id="scrub-label">${at==null?'All stops (live positions)':'Up to '+at}</small>`:'<small>Add dated waypoints to scrub.</small>'}
+${readOnly ? '<h3>Tokens</h3>' : `<h3>Tokens</h3><select id="ac"><option value="">Add character…</option>${S.entries.filter(x=>x.type=='character').map(x=>`<option value="${x.id}">${esc(x.title)}</option>`).join('')}</select>
+<input id="wd" placeholder="Waypoint date (e.g. 1203 or c. 1203-04)"><input id="wn" placeholder="Note"><input id="we" list="dl" placeholder="Linked event"><label><input type="checkbox" id="sn" checked style="width:auto"> Snap to nearest named place</label>`}
+${j.tokens.map((t,i)=>`<p style="border-left:3px solid ${COL[i%COL.length]};padding-left:.5rem"><b>${esc(byId(t.char)?.title||t.char)}</b>${readOnly ? '' : ` <button data-wp="${t.id}">Add waypoint here</button> <button data-rt="${t.id}" aria-label="Remove token">×</button>`}<br>${t.stops.map((s,n)=>`<small>${n+1}. ${esc(s.date||'—')} ${s.place?esc(byId(s.place)?.title||''):'free'} ${esc(s.note||'')}${readOnly ? '' : ` <a href="#" data-rs="${t.id}:${n}">remove</a>`}</small>`).join('<br>')}</p>`).join('')}`:''}
+${readOnly ? '' : `<h3>Base artwork</h3><input type="file" id="mf" accept="image/*"><small>Choose a file to preview it under your pins before saving.</small>${(S.map.versions||[]).map((v,i)=>`<br><small>${new Date(v.at*1000).toLocaleString()} <a href="#" data-rv="${i}">restore</a></small>`).join('')}`}${dl()}`;
+$$('[data-l]').forEach(c=>c.onchange=()=>{layers[c.dataset.l]=c.checked;draw()});
+$('#js').onchange=e=>{curJ=e.target.value||null;scrub=null;draw()};
+if ($('#sc')) $('#sc').oninput = event => {
+  scrub = Number(event.target.value);
+  draw(false);
+};
+if (readOnly) return;
+$('#ep').onchange=e=>{editPins=e.target.checked;draw()};if($('#pp'))$('#pp').onchange=e=>pickPl=e.target.value;
+$('#nj').onclick=async()=>{const t=prompt('Journey or storyline name');if(!t)return;const r=await save('journey',{title:t,status:'draft',tokens:[]});curJ=r.id;draw()};
 if(j){$('#st').onchange=e=>{j.status=e.target.value;saveJ(j)};$('#tc').onclick=async()=>{const f=j.tokens.flatMap(t=>t.stops).sort((a,b)=>yr(a.date)-yr(b.date))[0];await save('entry',{id:'evt-journey-'+j.id,type:'event',title:'Journey: '+j.title,summary:'Canon journey imported from the strategy board.',fields:{date:f?.date||''},body:j.tokens.map(t=>`- [[${t.char}]]: `+t.stops.map(s=>s.place?`[[${s.place}]]`:'free point').join(' → ')).join('\n')});j.status='canon';await saveJ(j);alert('Added to the timeline as an event.')};
-if($('#sc'))$('#sc').oninput=e=>{scrub=+e.target.value;draw()};$('#ac').onchange=e=>{if(!e.target.value)return;j.tokens.push({id:'t'+Date.now(),char:e.target.value,x:.5,y:.5,stops:[]});saveJ(j)};
+$('#ac').onchange=e=>{if(!e.target.value)return;j.tokens.push({id:'t'+Date.now(),char:e.target.value,x:.5,y:.5,stops:[]});saveJ(j)};
 $$('[data-wp]').forEach(b=>b.onclick=()=>{const t=j.tokens.find(x=>x.id==b.dataset.wp);let s={x:t.x,y:t.y,date:$('#wd').value,note:$('#wn').value,event:pickId($('#we').value)||''};if($('#sn').checked){const c=S.entries.filter(x=>x.type=='place'&&x.x!=null).map(x=>[Math.hypot(x.x-t.x,(x.y-t.y)*R()),x]).sort((a,b)=>a[0]-b[0])[0];if(c&&c[0]<.04)s={...s,place:c[1].id,x:c[1].x,y:c[1].y}}t.stops.push(s);saveJ(j)});
 $$('[data-rt]').forEach(b=>b.onclick=()=>{j.tokens=j.tokens.filter(x=>x.id!=b.dataset.rt);saveJ(j)});$$('[data-rs]').forEach(a=>a.onclick=ev=>{ev.preventDefault();const[t,n]=a.dataset.rs.split(':');j.tokens.find(x=>x.id==t).stops.splice(+n,1);saveJ(j)})}
 $('#mf').onchange=e=>{const f=e.target.files[0];if(f){prev={file:f,url:URL.createObjectURL(f)};pend={};atlas()}};
 $$('[data-rv]').forEach(a=>a.onclick=async ev=>{ev.preventDefault();const v=S.map.versions[+a.dataset.rv];if(confirm('Restore this artwork and its pin positions? The current version is kept.')){await api('/api/map',{file:v.file,pins:v.pins});await load();atlas()}});
 if($('#pv-no'))$('#pv-no').onclick=()=>{prev=pend=null;atlas()};if($('#pv-save'))$('#pv-save').onclick=async()=>{const r=await api('/api/upload?name='+encodeURIComponent(prev.file.name),prev.file);if(r.error)return alert(r.error);await api('/api/map',{file:r.file,pins:pend});prev=pend=null;await load();atlas()}}
 const place=()=>{const e=focus&&byId(focus);if(e&&tgt(e)){sel=tgt(e);const p=byId(sel);view.k=3.5;view.x=vp.clientWidth/2-p.x*vp.clientWidth*view.k;view.y=vp.clientHeight/2-p.y*vp.clientWidth*R()*view.k}else view={x:0,y:0,k:1}};
-img.onload=()=>{place();tf();draw()};if(img.complete&&img.naturalWidth){place();tf();draw()}else tf()}
-async function route(){hideTip();const h=location.hash.slice(2).split('/').map(decodeURIComponent);app.classList.remove('wide');
+img.onload = () => {place();tf();draw()};
+img.onerror = draw;
+if (mapSource) img.src = mapSource;
+if (mapReady()) place();
+tf();
+draw();
+}
+function route(){hideTip();const h=location.hash.slice(2).split('/').map(decodeURIComponent);app.classList.remove('wide');
+if(readOnly && h[0]==='edit'){
+  app.innerHTML='<h1>Read-only demo</h1><p>Editing is available through the local Python server. <a href="#/">Return to the archive</a></p>';
+  return;
+}
 ({'':home,t:index,e:entry,edit:editor,atlas,timeline}[h[0]]||home)(h[1]||'',h[2])}
-addEventListener('hashchange',route);load().then(route);
+
+async function start() {
+  $('#mode-notice').hidden = !readOnly;
+  $('#q').disabled = true;
+  app.innerHTML = '<p role="status">Loading the archive…</p>';
+  try {
+    await load();
+    $('#nav').innerHTML = Object.entries(T).map(([key, [title]]) =>
+      `<a href="#/t/${key}">${title}</a>`).join('') +
+      '<a href="#/t/journey">Journeys</a><a href="#/timeline">Timeline</a><a href="#/atlas">Atlas</a>';
+    route();
+  } catch (error) {
+    app.innerHTML = `<h1>The archive couldn’t load</h1><p role="alert">${esc(error.message)}</p><p>${
+      readOnly ? 'The public demo needs its published data files.' : 'Make sure the Python server is running with <code>python3 server.py</code>.'
+    }</p><button id="retry">Try again</button>`;
+    $('#retry').onclick = start;
+    return;
+  }
+  $('#q').disabled = false;
+  addEventListener('hashchange', route);
+}
+start();
 </script></body></html>
